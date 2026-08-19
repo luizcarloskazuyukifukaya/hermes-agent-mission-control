@@ -1,0 +1,153 @@
+# ============================================================================
+# Hermy HQ + hermes-bridge + Postgres + Hermes Dashboard — V-Decent / Coolify
+# Target: vdecentserver0
+# Reuses the EXISTING hermes-agent container (host network) — not recreated.
+# Current upstream architecture: hermy-hq and hermes-bridge talk to each
+# other only through Postgres (message bus). hermes-bridge is the only
+# service that execs the `hermes` CLI.
+# ============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Postgres — message bus shared by hermy-hq and hermes-bridge
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: hermy-hq-postgres
+    restart: unless-stopped
+    expose:
+      - "5432"
+    environment:
+      - POSTGRES_USER=hermy
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=hermy_hq
+    volumes:
+      - hermy_hq_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hermy -d hermy_hq"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks:
+      - default
+
+  # ---------------------------------------------------------------------------
+  # Hermy HQ — Next.js Mission Control (PUBLIC, Traefik-managed)
+  # ---------------------------------------------------------------------------
+  hermy-hq:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_OWNER_NAME=${NEXT_PUBLIC_OWNER_NAME:-}
+        - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://dashboard.v-decent.org}
+    image: hermy-hq
+    container_name: hermy-hq
+    restart: unless-stopped
+    expose:
+      - "3000"
+    networks:
+      - default
+      - coolify
+    labels:
+      - "coolify.managed=true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - POSTGRES_URL=${POSTGRES_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://dashboard.v-decent.org}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - ALLOWED_EMAILS=${ALLOWED_EMAILS}
+      - NEXT_PUBLIC_OWNER_NAME=${NEXT_PUBLIC_OWNER_NAME:-}
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-https://dashboard.v-decent.org}
+      - HERMES_BOARD=${HERMES_BOARD:-default}
+      - BRIEF_HOUR=${BRIEF_HOUR:-11}
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET}
+      - CRON_SECRET=${CRON_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
+
+  # ---------------------------------------------------------------------------
+  # Hermes CLI extract — one-shot: copies the `hermes` binary out of the
+  # existing hermes-agent-hermes:latest image (local-only on this host,
+  # never published to a registry, so it can't be a build-time FROM source)
+  # into a shared volume, so hermes-bridge can execFile it. Runs once per
+  # `docker compose up`, then exits.
+  # ---------------------------------------------------------------------------
+  hermes-cli-extract:
+    image: hermes-agent-hermes:latest
+    container_name: hermes-cli-extract
+    restart: "no"
+    entrypoint:
+      - sh
+      - -c
+      - "cp /usr/local/bin/hermes /shared/hermes && chmod +x /shared/hermes && echo 'hermes CLI extracted to shared volume'"
+    volumes:
+      - hermes-cli-bin:/shared
+    networks:
+      - default
+
+  # ---------------------------------------------------------------------------
+  # hermes-bridge — polls Postgres, runs queued/approved AgentRequests via
+  # the `hermes` CLI, mirrors kanban/cron/health/memory back. Not web-facing.
+  # ---------------------------------------------------------------------------
+  hermes-bridge:
+    build:
+      context: ./hermes-bridge
+      dockerfile: Dockerfile
+    image: hermes-bridge
+    container_name: hermes-bridge
+    restart: unless-stopped
+    networks:
+      - default
+    depends_on:
+      postgres:
+        condition: service_healthy
+      hermes-cli-extract:
+        condition: service_completed_successfully
+    volumes:
+      - /home/kfukaya/hermes-agent/data:/opt/data
+      - hermes-cli-bin:/opt/hermes-cli
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - HERMES_BOARD=${HERMES_BOARD:-default}
+      - HERMES_BIN=/opt/hermes-cli/hermes
+      - HERMES_WIKI=/opt/data/wiki
+      - HERMES_HOME=/opt/data
+      - BRIEF_HOUR=${BRIEF_HOUR:-11}
+
+  # ---------------------------------------------------------------------------
+  # Hermes Dashboard — hermes's own built-in web UI (PUBLIC, basic auth)
+  # ---------------------------------------------------------------------------
+  hermes-dashboard:
+    image: hermes-agent-hermes:latest
+    container_name: hermes-dashboard
+    restart: unless-stopped
+    expose:
+      - "9119"
+    networks:
+      - default
+      - coolify
+    labels:
+      - "coolify.managed=true"
+    volumes:
+      - /home/kfukaya/hermes-agent/data:/opt/data
+    environment:
+      - HERMES_HOME=/opt/data
+      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=admin
+      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${DASHBOARD_PASSWORD}
+      - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${DASHBOARD_AUTH_SECRET}
+    command: ["hermes", "dashboard", "--host", "0.0.0.0", "--no-open"]
+
+volumes:
+  hermy_hq_postgres_data:
+  hermes-cli-bin:
+
+networks:
+  coolify:
+    external: true
