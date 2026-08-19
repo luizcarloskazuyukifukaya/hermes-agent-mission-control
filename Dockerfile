@@ -55,4 +55,4 @@ ENTRYPOINT ["dumb-init", "--"]
 # Auto-sync Prisma schema on boot, then start the server. --accept-data-loss
 # is safe here: this is a brand-new database with no rows to lose, and there
 # is no TTY in the automated deploy pipeline to answer a confirmation prompt.
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node node_modules/.bin/next start"]
+CMD ["sh", "-c", "echo \"DEBUG DATABASE_URL (redacted): $(echo \"$DATABASE_URL\" | sed -E 's#(postgresql://[^:]+):[^@]+@#\\1:REDACTED@#')\" && npx prisma db push --skip-generate --accept-data-loss && node node_modules/.bin/next start"]
