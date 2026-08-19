@@ -48,8 +48,9 @@ if (DB_URL.startsWith("prisma://") || DB_URL.startsWith("prisma+")) {
   process.exit(1);
 }
 // Cloud Postgres (Prisma Postgres/Neon/Supabase/RDS) needs SSL; a same-network
-// Postgres (localhost, or a docker-compose service like "postgres") doesn't.
-const isLocal = /@(localhost|127\.0\.0\.1|postgres)(:|\/)/.test(DB_URL);
+// Postgres (localhost, or a docker-compose service on a private network, which
+// never has a public/routable hostname with dots in it) doesn't.
+const isLocal = /@[^.@:/]+(:|\/)/.test(DB_URL);
 const pool = new pg.Pool({ connectionString: DB_URL, max: 4, ssl: isLocal ? undefined : { rejectUnauthorized: false } });
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
