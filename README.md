@@ -2,7 +2,10 @@
 
 <img src="./public/hermy-hq-banner.svg" alt="Hermy HQ — mission control for your self-hosted Hermes agent" width="100%" />
 
+<h1>vdecent-hermes-dashboard</h1>
+
 <p><strong>Your own mission control for a self-hosted AI agent.</strong></p>
+<p>V-Decent's self-hosted fork, deployed at <a href="https://dashboard.v-decent.org">dashboard.v-decent.org</a>.</p>
 
 <p>
   <img src="https://img.shields.io/badge/Next.js-16-0A0B0D?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js 16" />
@@ -147,8 +150,8 @@ access to Postgres and your local `hermes` CLI. See
 ### 1. Clone and install
 
 ```sh
-git clone <your-fork-url> hermy-hq
-cd hermy-hq
+git clone https://github.com/luizcarloskazuyukifukaya/vdecent-hermes-dashboard.git
+cd vdecent-hermes-dashboard
 npm install
 ```
 
