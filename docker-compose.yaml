@@ -1,10 +1,14 @@
 # ============================================================================
-# Hermy HQ + hermes-bridge + Postgres + Hermes Dashboard — V-Decent / Coolify
+# Hermy HQ + hermes-bridge + Postgres — V-Decent / Coolify
 # Target: vdecentserver0
 # Reuses the EXISTING hermes-agent container (host network) — not recreated.
 # Current upstream architecture: hermy-hq and hermes-bridge talk to each
 # other only through Postgres (message bus). hermes-bridge is the only
 # service that execs the `hermes` CLI.
+#
+# Hermes's own built-in web dashboard (the `hermes dashboard` CLI command,
+# basic-auth UI) is deliberately NOT part of this stack — it's owned and
+# deployed by the Hermes Agent project itself, not Hermy HQ.
 # ============================================================================
 
 services:
@@ -60,10 +64,10 @@ services:
       - "coolify.managed=true"
     # The app only listens on IPv4 (HOSTNAME=0.0.0.0), but the shared
     # "coolify" network also hands out an IPv6 address per container, and
-    # Traefik's Docker provider isn't guaranteed to pick the v4 one — it
-    # picked hermes-dashboard's v6 address below and got connection-refused
-    # (502) despite the app being perfectly reachable over v4. Disabling v6
-    # on the container removes the ambiguity instead of relying on luck.
+    # Traefik's Docker provider isn't guaranteed to pick the v4 one (seen
+    # concretely: it picked another public service's v6 address on this
+    # same network and got connection-refused despite the app being
+    # perfectly reachable over v4). Disabling v6 removes the ambiguity.
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
     depends_on:
@@ -110,10 +114,10 @@ services:
   # Runs inside hermes-agent-hermes:latest itself (not a container built from
   # this repo) because the `hermes` CLI is a Python entry-point needing
   # python3.11 + the hermes_cli package, which only that image has; that
-  # image also already has Node. Using `image:` (no build, same as
-  # hermes-dashboard below) avoids ever needing that local-only image
-  # (never published to a registry) as a build-time FROM source, which
-  # fails under Coolify's `docker compose build --pull`.
+  # image also already has Node. Using `image:` (no build) avoids ever
+  # needing that local-only image (never published to a registry) as a
+  # build-time FROM source, which fails under Coolify's
+  # `docker compose build --pull`.
   # ---------------------------------------------------------------------------
   hermes-bridge:
     image: hermes-agent-hermes:latest
@@ -136,32 +140,6 @@ services:
       - HERMES_HOME=/opt/data
       - BRIEF_HOUR=${BRIEF_HOUR:-11}
     command: ["node", "/opt/bridge/bridge.mjs"]
-
-  # ---------------------------------------------------------------------------
-  # Hermes Dashboard — hermes's own built-in web UI (PUBLIC, basic auth)
-  # ---------------------------------------------------------------------------
-  hermes-dashboard:
-    image: hermes-agent-hermes:latest
-    container_name: hermes-dashboard
-    restart: unless-stopped
-    expose:
-      - "9119"
-    networks:
-      - default
-      - coolify
-    labels:
-      - "coolify.managed=true"
-    # See the matching comment on hermy-hq: --host 0.0.0.0 below is v4-only.
-    sysctls:
-      - net.ipv6.conf.all.disable_ipv6=1
-    volumes:
-      - /home/kfukaya/hermes-agent/data:/opt/data
-    environment:
-      - HERMES_HOME=/opt/data
-      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=admin
-      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${DASHBOARD_PASSWORD}
-      - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${DASHBOARD_AUTH_SECRET}
-    command: ["hermes", "dashboard", "--host", "0.0.0.0", "--no-open"]
 
 volumes:
   hermy_hq_postgres_data:
