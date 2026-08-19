@@ -11,7 +11,9 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+# No package-lock.json ships in hermes-bridge/ (single dependency), so `npm
+# ci` has nothing to install from — use `npm install` instead.
+RUN npm install --omit=dev
 
 COPY bridge.mjs ./
 
