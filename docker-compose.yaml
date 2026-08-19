@@ -10,8 +10,14 @@
 services:
   # ---------------------------------------------------------------------------
   # Postgres — message bus shared by hermy-hq and hermes-bridge
+  # Service name is deliberately NOT the generic "postgres": hermy-hq also
+  # sits on the shared "coolify" proxy network, and Docker's embedded DNS
+  # resolves service-name aliases across every network a container is on —
+  # a generic "postgres" alias collided with an unrelated app's DB service
+  # on that shared network and silently connected hermy-hq to the wrong
+  # database. "hermy-hq-postgres" is specific enough to not collide.
   # ---------------------------------------------------------------------------
-  postgres:
+  hermy-hq-postgres:
     image: postgres:17-alpine
     container_name: hermy-hq-postgres
     restart: unless-stopped
@@ -53,7 +59,7 @@ services:
     labels:
       - "coolify.managed=true"
     depends_on:
-      postgres:
+      hermy-hq-postgres:
         condition: service_healthy
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -106,7 +112,7 @@ services:
     networks:
       - default
     depends_on:
-      postgres:
+      hermy-hq-postgres:
         condition: service_healthy
       hermes-cli-extract:
         condition: service_completed_successfully
