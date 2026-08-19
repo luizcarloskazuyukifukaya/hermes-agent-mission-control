@@ -47,8 +47,9 @@ if (DB_URL.startsWith("prisma://") || DB_URL.startsWith("prisma+")) {
   console.error("DATABASE_URL is a Prisma Accelerate URL; the bridge needs a DIRECT postgres:// connection string (e.g. POSTGRES_URL).");
   process.exit(1);
 }
-// Cloud Postgres (Prisma Postgres/Neon/Supabase/RDS) needs SSL; localhost doesn't.
-const isLocal = /@(localhost|127\.0\.0\.1)/.test(DB_URL);
+// Cloud Postgres (Prisma Postgres/Neon/Supabase/RDS) needs SSL; a same-network
+// Postgres (localhost, or a docker-compose service like "postgres") doesn't.
+const isLocal = /@(localhost|127\.0\.0\.1|postgres)(:|\/)/.test(DB_URL);
 const pool = new pg.Pool({ connectionString: DB_URL, max: 4, ssl: isLocal ? undefined : { rejectUnauthorized: false } });
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
