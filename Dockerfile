@@ -1,6 +1,8 @@
 # Hermy HQ — Dockerfile for V-Decent / Coolify deployment
 # Multi-stage: build -> production image
-# Healthcheck on /api/hermes/health (public, no auth header)
+# Healthcheck on /api/hermes/health (requires x-internal-secret: the global
+# middleware in src/middleware.ts 401s every /api/* route without either a
+# NextAuth session or that header)
 
 # --- Build stage ---
 FROM node:22-alpine AS builder
@@ -47,7 +49,7 @@ COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD curl -fsS http://localhost:3000/api/hermes/health || exit 1
+  CMD curl -fsS -H "x-internal-secret: $INTERNAL_API_SECRET" http://localhost:3000/api/hermes/health || exit 1
 
 EXPOSE 3000
 
