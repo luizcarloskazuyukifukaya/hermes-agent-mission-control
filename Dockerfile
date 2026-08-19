@@ -43,6 +43,8 @@ COPY --from=builder /app/prisma ./prisma/
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://localhost:3000/api/hermes/health || exit 1
@@ -55,4 +57,4 @@ ENTRYPOINT ["dumb-init", "--"]
 # Auto-sync Prisma schema on boot, then start the server. --accept-data-loss
 # is safe here: this is a brand-new database with no rows to lose, and there
 # is no TTY in the automated deploy pipeline to answer a confirmation prompt.
-CMD ["sh", "-c", "echo \"DEBUG DATABASE_URL (redacted): $(echo \"$DATABASE_URL\" | sed -E 's#(postgresql://[^:]+):[^@]+@#\\1:REDACTED@#')\" && npx prisma db push --skip-generate --accept-data-loss && node node_modules/.bin/next start"]
+CMD ["./docker-entrypoint.sh"]
