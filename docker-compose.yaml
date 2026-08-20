@@ -27,6 +27,13 @@ services:
     restart: unless-stopped
     expose:
       - "5432"
+    # Published to the host's loopback only (not externally reachable) so
+    # hermes-bridge — which runs on network_mode: host to reach the
+    # omniroute LLM gateway on the host's 127.0.0.1:20128 — can still
+    # reach Postgres, since host networking has no Docker-DNS access to
+    # the "hermy-hq-postgres" service-name alias used on the default network.
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_USER=hermy
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -123,8 +130,15 @@ services:
     image: hermes-agent-hermes:latest
     container_name: hermes-bridge
     restart: unless-stopped
-    networks:
-      - default
+    # host networking: the `hermes` CLI's config.yaml (shared, bind-mounted
+    # from the host at /home/kfukaya/hermes-agent/data — same file used by
+    # interactive hermes sessions on this host) points its LLM provider at
+    # http://127.0.0.1:20128/v1, the omniroute gateway bound to the host's
+    # own loopback. On the default bridge network that 127.0.0.1 was this
+    # container's own loopback, not the host's, so every chat/oneshot
+    # dispatch failed with "Connection error." Host networking makes
+    # 127.0.0.1 resolve correctly without touching the shared config file.
+    network_mode: host
     depends_on:
       hermy-hq-postgres:
         condition: service_healthy
@@ -134,7 +148,10 @@ services:
       - /home/kfukaya/hermes-agent/data:/opt/data
       - hermes-bridge-app:/opt/bridge:ro
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      # Host networking has no Docker-DNS, so the "hermy-hq-postgres"
+      # service-name alias used by ${DATABASE_URL} doesn't resolve here —
+      # reach Postgres via its host-published loopback port instead.
+      - DATABASE_URL=postgresql://hermy:${POSTGRES_PASSWORD}@127.0.0.1:5432/hermy_hq
       - HERMES_BOARD=${HERMES_BOARD:-default}
       - HERMES_WIKI=/opt/data/wiki
       - HERMES_HOME=/opt/data
