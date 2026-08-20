@@ -150,8 +150,12 @@ services:
     environment:
       # Host networking has no Docker-DNS, so the "hermy-hq-postgres"
       # service-name alias used by ${DATABASE_URL} doesn't resolve here —
-      # reach Postgres via its host-published loopback port instead.
-      - DATABASE_URL=postgresql://hermy:${POSTGRES_PASSWORD}@127.0.0.1:5432/hermy_hq
+      # reach Postgres via its host-published loopback port instead. Must
+      # be "localhost", not "127.0.0.1": bridge.mjs's isLocal check
+      # (used to decide whether to require SSL) is a dotless-hostname
+      # regex, and an IP literal fails it, wrongly forcing SSL against a
+      # Postgres that isn't configured for it.
+      - DATABASE_URL=postgresql://hermy:${POSTGRES_PASSWORD}@localhost:5432/hermy_hq
       - HERMES_BOARD=${HERMES_BOARD:-default}
       - HERMES_WIKI=/opt/data/wiki
       - HERMES_HOME=/opt/data
