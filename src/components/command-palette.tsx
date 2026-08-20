@@ -10,9 +10,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
-  Twitter,
-  FileText,
-  Youtube,
   Activity,
   Bot,
   Lightbulb,
@@ -32,9 +29,6 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "X", href: "/x", icon: Twitter },
-  { label: "Articles", href: "/articles", icon: FileText },
-  { label: "YouTube", href: "/youtube", icon: Youtube },
   { label: "Client Pulse", href: "/client-pulse", icon: Activity },
   { label: "Agents", href: "/agents", icon: Bot },
   { label: "Ideas", href: "/ideas", icon: Lightbulb },
