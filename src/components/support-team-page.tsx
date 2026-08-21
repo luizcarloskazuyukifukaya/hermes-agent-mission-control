@@ -222,6 +222,8 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
           lastSync={board.lastSync}
           label="Issue board"
           title={`${title} incidents`}
+          emptyTitle="No open incidents"
+          emptyHint="Incidents mirrored from this environment's support board will show up here."
         />
       )}
       </div>

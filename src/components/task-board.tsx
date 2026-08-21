@@ -58,12 +58,16 @@ export function TaskBoard({
   lastSync,
   label = "Task board",
   title = "Hermes kanban",
+  emptyTitle = "No tasks on the board",
+  emptyHint = "Dispatched work and synced kanban cards will show up here.",
 }: {
   tasks: Task[];
   total: number;
   lastSync: string | null;
   label?: string;
   title?: string;
+  emptyTitle?: string;
+  emptyHint?: string;
 }) {
   const groups: Record<string, Task[]> = {};
   for (const t of tasks) {
@@ -90,8 +94,8 @@ export function TaskBoard({
         <Panel className="p-2">
           <EmptyState
             icon={<LayoutGrid className="w-6 h-6" />}
-            title="No tasks on the board"
-            hint="Dispatched work and synced kanban cards will show up here."
+            title={emptyTitle}
+            hint={emptyHint}
           />
         </Panel>
       ) : (
