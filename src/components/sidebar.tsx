@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   Home,
-  Bot,
+  Radio,
+  ShieldAlert,
   Lightbulb,
   ClipboardList,
   Cpu,
@@ -35,7 +36,8 @@ const navGroups = [
   {
     name: "System",
     items: [
-      { href: "/agents", label: "Agents", icon: Bot },
+      { href: "/support-dev", label: "Support · Dev", icon: Radio },
+      { href: "/support-pro", label: "Support · Pro", icon: ShieldAlert },
       { href: "/memory-wiki", label: "Memory Wiki", icon: BookOpen },
       { href: "/ideas", label: "Ideas", icon: Lightbulb },
     ],
@@ -46,7 +48,7 @@ const navGroups = [
 const mobileTabsRaw = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/ideas", label: "Ideas", icon: Lightbulb },
-  { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/support-dev", label: "Support", icon: Radio },
 ];
 
 export function Sidebar() {
