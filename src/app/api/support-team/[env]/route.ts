@@ -73,7 +73,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ env: st
     const blocked = memberTasks.find((t) => t.status === "blocked");
     const doneCount = memberTasks.filter((t) => t.status === "done").length;
 
-    const status: Agent["status"] = running ? "working" : oldestOpen ? "idle" : blocked ? "error" : "idle";
+    const status: Agent["status"] = running ? "working" : blocked ? "error" : oldestOpen ? "idle" : "idle";
     const currentTask = running?.title ?? oldestOpen?.title ?? undefined;
 
     const recentActivity = byRecency.slice(0, 10).map((t) => ({
