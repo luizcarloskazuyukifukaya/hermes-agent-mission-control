@@ -7,9 +7,16 @@ interface Task {
   id: string;
   name: string;
   status: string;
+  priority: string | null;
+  category: string | null;
+  dueDate: string | null;
+}
+
+interface EditFields {
+  name: string;
   priority: string;
   category: string;
-  dueDate?: string;
+  dueDate: string;
 }
 
 const columns = [
@@ -19,11 +26,27 @@ const columns = [
   { id: "Done", label: "Done" },
 ];
 
+const EMPTY_EDIT: EditFields = { name: "", priority: "", category: "", dueDate: "" };
+
+function isOverdue(task: Task): boolean {
+  if (!task.dueDate || task.status === "Done") return false;
+  return new Date(task.dueDate).getTime() < Date.now();
+}
+
+function formatDueDate(dueDate: string): string {
+  return new Date(dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState("");
+  const [newPriority, setNewPriority] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
   const [showAddTask, setShowAddTask] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editFields, setEditFields] = useState<EditFields>(EMPTY_EDIT);
 
   useEffect(() => {
     fetchTasks();
@@ -47,9 +70,17 @@ export default function TasksPage() {
       await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newTask, status: "Not started" }),
+        body: JSON.stringify({
+          name: newTask,
+          priority: newPriority || undefined,
+          category: newCategory || undefined,
+          dueDate: newDueDate || undefined,
+        }),
       });
       setNewTask("");
+      setNewPriority("");
+      setNewCategory("");
+      setNewDueDate("");
       setShowAddTask(false);
       fetchTasks();
     } catch (e) {
@@ -67,6 +98,54 @@ export default function TasksPage() {
       fetchTasks();
     } catch (e) {
       console.error("Failed to update task", e);
+    }
+  }
+
+  function startEdit(task: Task) {
+    setEditingId(task.id);
+    setEditFields({
+      name: task.name,
+      priority: task.priority || "",
+      category: task.category || "",
+      dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditFields(EMPTY_EDIT);
+  }
+
+  async function saveEdit(taskId: string) {
+    try {
+      await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: taskId,
+          name: editFields.name,
+          priority: editFields.priority || null,
+          category: editFields.category || null,
+          dueDate: editFields.dueDate || null,
+        }),
+      });
+      cancelEdit();
+      fetchTasks();
+    } catch (e) {
+      console.error("Failed to save task edit", e);
+    }
+  }
+
+  async function deleteTask(taskId: string) {
+    try {
+      await fetch("/api/tasks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: taskId }),
+      });
+      fetchTasks();
+    } catch (e) {
+      console.error("Failed to delete task", e);
     }
   }
 
@@ -101,7 +180,7 @@ export default function TasksPage() {
       <div className="relative z-10 h-full flex flex-col w-full mx-auto pt-4 pb-16">
         <div className="hq-rise flex justify-between items-end gap-4 mb-10" style={rise(0)}>
           <div>
-            <div className="eyebrow mb-2">Synced with Notion</div>
+            <div className="eyebrow mb-2">Your personal board</div>
             <h1 className="text-[32px] font-semibold tracking-[-0.025em] leading-none text-[var(--text)]">Tasks</h1>
           </div>
           <Button variant="primary" onClick={() => setShowAddTask(true)}>+ Add Task</Button>
@@ -118,6 +197,31 @@ export default function TasksPage() {
               onKeyDown={(e) => e.key === "Enter" && addTask()}
               autoFocus
             />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              <select
+                value={newPriority}
+                onChange={(e) => setNewPriority(e.target.value)}
+                className="bg-[var(--surface-1)] border border-[var(--line)] text-[var(--text-2)] rounded-[var(--r-md)] px-3 py-2 text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
+              >
+                <option value="">No priority</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+              <input
+                type="text"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="Category (optional)"
+                className="bg-[var(--surface-1)] border border-[var(--line)] text-[var(--text)] placeholder-[var(--text-3)] rounded-[var(--r-md)] px-3 py-2 text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
+              />
+              <input
+                type="date"
+                value={newDueDate}
+                onChange={(e) => setNewDueDate(e.target.value)}
+                className="bg-[var(--surface-1)] border border-[var(--line)] text-[var(--text-2)] rounded-[var(--r-md)] px-3 py-2 text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
+              />
+            </div>
             <div className="flex gap-2">
               <Button variant="primary" onClick={addTask}>Add Task</Button>
               <Button variant="ghost" onClick={() => setShowAddTask(false)}>Cancel</Button>
@@ -143,7 +247,14 @@ export default function TasksPage() {
                         key={task.id}
                         task={task}
                         done={column.id === "Done"}
+                        isEditing={editingId === task.id}
+                        editFields={editFields}
+                        onEditFieldsChange={setEditFields}
                         onStatusChange={(status) => updateTaskStatus(task.id, status)}
+                        onStartEdit={() => startEdit(task)}
+                        onCancelEdit={cancelEdit}
+                        onSaveEdit={() => saveEdit(task.id)}
+                        onDelete={() => deleteTask(task.id)}
                       />
                     ))}
                   {count === 0 && (
@@ -162,11 +273,25 @@ export default function TasksPage() {
 function TaskCard({
   task,
   done,
+  isEditing,
+  editFields,
+  onEditFieldsChange,
   onStatusChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
 }: {
   task: Task;
   done?: boolean;
+  isEditing: boolean;
+  editFields: EditFields;
+  onEditFieldsChange: (fields: EditFields) => void;
   onStatusChange: (status: string) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onDelete: () => void;
 }) {
   const priorityTone: Record<string, "warn" | "neutral"> = {
     High: "warn",
@@ -174,17 +299,90 @@ function TaskCard({
     Low: "neutral",
   };
 
+  if (isEditing) {
+    return (
+      <div className="rounded-[var(--r-md)] border border-[var(--line-strong)] bg-[var(--surface-1)] p-3.5 space-y-2">
+        <input
+          type="text"
+          value={editFields.name}
+          onChange={(e) => onEditFieldsChange({ ...editFields, name: e.target.value })}
+          className="w-full bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text)] rounded-[var(--r-sm)] px-2.5 py-1.5 text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
+          autoFocus
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            value={editFields.priority}
+            onChange={(e) => onEditFieldsChange({ ...editFields, priority: e.target.value })}
+            className="bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text-2)] rounded-[var(--r-sm)] px-2 py-1.5 text-[12px] focus:outline-none focus:border-[var(--line-strong)]"
+          >
+            <option value="">No priority</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+          <input
+            type="text"
+            value={editFields.category}
+            onChange={(e) => onEditFieldsChange({ ...editFields, category: e.target.value })}
+            placeholder="Category"
+            className="bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text)] placeholder-[var(--text-3)] rounded-[var(--r-sm)] px-2 py-1.5 text-[12px] focus:outline-none focus:border-[var(--line-strong)]"
+          />
+        </div>
+        <input
+          type="date"
+          value={editFields.dueDate}
+          onChange={(e) => onEditFieldsChange({ ...editFields, dueDate: e.target.value })}
+          className="w-full bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text-2)] rounded-[var(--r-sm)] px-2.5 py-1.5 text-[12px] focus:outline-none focus:border-[var(--line-strong)]"
+        />
+        <div className="flex gap-2 pt-1">
+          <Button variant="primary" size="sm" onClick={onSaveEdit}>Save</Button>
+          <Button variant="ghost" size="sm" onClick={onCancelEdit}>Cancel</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const overdue = isOverdue(task);
+
   return (
     <div className="rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--surface-1)] p-3.5 transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)] cursor-pointer group">
-      <p className={`font-medium text-[13px] mb-3 leading-relaxed ${done ? "text-[var(--text-3)] line-through" : "text-[var(--text)]"}`}>
-        {task.name}
-      </p>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <p className={`font-medium text-[13px] leading-relaxed ${done ? "text-[var(--text-3)] line-through" : "text-[var(--text)]"}`}>
+          {task.name}
+        </p>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button
+            onClick={onStartEdit}
+            className="text-[var(--text-3)] hover:text-[var(--text)] transition-colors p-1"
+            aria-label="Edit task"
+            title="Edit task"
+          >
+            ✏️
+          </button>
+          <button
+            onClick={onDelete}
+            className="text-[var(--text-3)] hover:text-[var(--down)] transition-colors p-1"
+            aria-label="Delete task"
+            title="Delete task"
+          >
+            🗑️
+          </button>
+        </div>
+      </div>
       <div className="flex items-center gap-2 flex-wrap">
         {task.priority && (
           <Pill tone={priorityTone[task.priority] || "neutral"}>{task.priority}</Pill>
         )}
         {task.category && (
           <span className="text-[11px] text-[var(--text-3)]">{task.category}</span>
+        )}
+        {task.dueDate && (
+          <span
+            className="text-[11px]"
+            style={{ color: overdue ? "var(--warn)" : "var(--text-3)" }}
+          >
+            Due {formatDueDate(task.dueDate)}
+          </span>
         )}
       </div>
       <div className="mt-3 pt-3 border-t border-[var(--line)] opacity-0 group-hover:opacity-100 transition-opacity">
