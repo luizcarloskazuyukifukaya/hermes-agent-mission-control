@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       type: body.type || null,
       model: body.model || null,
       status: body.status || null,
+      estimatedTime: body.estimatedTime || null,
     },
   });
 
