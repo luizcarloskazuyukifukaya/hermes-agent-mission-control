@@ -65,7 +65,12 @@ export async function PATCH(req: Request) {
 
     const data: Record<string, unknown> = {};
     if (status !== undefined) data.status = status;
-    if (name !== undefined) data.name = name;
+    if (name !== undefined) {
+      if (typeof name !== "string" || !name.trim()) {
+        return NextResponse.json({ error: "name cannot be empty" }, { status: 400 });
+      }
+      data.name = name.trim();
+    }
     if (priority !== undefined) data.priority = priority || null;
     if (category !== undefined) data.category = category || null;
     if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;

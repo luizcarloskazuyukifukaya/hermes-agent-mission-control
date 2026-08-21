@@ -30,11 +30,13 @@ const EMPTY_EDIT: EditFields = { name: "", priority: "", category: "", dueDate: 
 
 function isOverdue(task: Task): boolean {
   if (!task.dueDate || task.status === "Done") return false;
-  return new Date(task.dueDate).getTime() < Date.now();
+  const dueDay = task.dueDate.slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA");
+  return dueDay < today;
 }
 
 function formatDueDate(dueDate: string): string {
-  return new Date(dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 export default function TasksPage() {
@@ -55,6 +57,7 @@ export default function TasksPage() {
   async function fetchTasks() {
     try {
       const res = await fetch("/api/tasks");
+      if (!res.ok) throw new Error(`Failed to fetch tasks: ${res.status}`);
       const data = await res.json();
       setTasks(data.tasks || []);
     } catch (e) {
@@ -117,13 +120,14 @@ export default function TasksPage() {
   }
 
   async function saveEdit(taskId: string) {
+    if (!editFields.name.trim()) return;
     try {
       await fetch("/api/tasks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: taskId,
-          name: editFields.name,
+          name: editFields.name.trim(),
           priority: editFields.priority || null,
           category: editFields.category || null,
           dueDate: editFields.dueDate || null,
