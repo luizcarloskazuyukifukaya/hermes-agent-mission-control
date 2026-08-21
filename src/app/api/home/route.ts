@@ -48,7 +48,7 @@ function formatHermesKanban(tasks: Array<{ id: string; title: string; assignee?:
 // the bridge has synced at least once.
 async function loadHermesKanban() {
   try {
-    const tasks = await prisma.hermesTask.findMany({ orderBy: [{ priority: "desc" }], take: 50 });
+    const tasks = await prisma.hermesTask.findMany({ where: { board: HERMES_KANBAN_BOARD }, orderBy: [{ priority: "desc" }], take: 50 });
     if (!tasks.length) return formatHermesKanban(HERMES_KANBAN_DEMO_TASKS, "demo");
     return formatHermesKanban(
       tasks.map(t => ({ id: t.id, title: t.title, assignee: t.assignee, status: t.status, priority: t.priority })),

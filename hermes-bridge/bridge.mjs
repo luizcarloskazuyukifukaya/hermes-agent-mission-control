@@ -301,7 +301,9 @@ async function processQueue() {
 
 /* ─────────────── loops ─────────────── */
 async function mirrorTick() {
-  try { for (const b of KANBAN_BOARDS) await mirrorKanban(b); } catch (e) { log("mirrorKanban err", e.message); }
+  for (const b of KANBAN_BOARDS) {
+    try { await mirrorKanban(b); } catch (e) { log(`mirrorKanban err (${b})`, e.message); }
+  }
   try { await mirrorCrons(); } catch (e) { log("mirrorCrons err", e.message); }
   try { await mirrorHealth(); } catch (e) { log("mirrorHealth err", e.message); }
   try { await mirrorWiki(); } catch (e) { log("mirrorWiki err", e.message); }
