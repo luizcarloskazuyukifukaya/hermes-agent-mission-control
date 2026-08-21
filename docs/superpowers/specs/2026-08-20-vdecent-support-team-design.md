@@ -2,6 +2,14 @@
 
 Date: 2026-08-20
 
+**Amendment (2026-08-21, during implementation planning):** the "Backend" section below
+now includes a small additive schema change discovered while detailing the status API —
+`HermesTask.updatedAt` is not actually maintained on status transitions (only set once on
+first insert; `ON CONFLICT` never touches it), so it can't drive "recent activity"
+ordering. Three new nullable columns (`kanbanCreatedAt`/`kanbanStartedAt`/
+`kanbanCompletedAt`, sourced from the kanban JSON's real timestamps) fix this. See the
+"Data layer: status derivation" section for the corrected column list.
+
 ## Purpose
 
 Replace the dashboard's fictional "AI Team" (Max/Sage/Knox/Nova/Pixel, a content-business
@@ -55,8 +63,16 @@ that way until now.
 
 **Change:** parameterize `mirrorKanban()` by board slug and call it for each of
 `["default", "vdecent-support-dev", "vdecent-support-prod"]` on each mirror cycle, instead
-of just the single configured `BOARD`. No Prisma schema changes — the `board` and `status`
-columns/indexes already exist.
+of just the single configured `BOARD`. The `board` and `status` columns/indexes already
+exist and need no change.
+
+**Schema addition (see amendment above):** `HermesTask` gains three nullable columns —
+`kanbanCreatedAt`, `kanbanStartedAt`, `kanbanCompletedAt` — populated from the kanban
+JSON's own `created_at`/`started_at`/`completed_at` (Unix seconds → `DateTime`).
+`mirrorKanban()`'s upsert sets all three on both insert and `ON CONFLICT` update, since
+`started_at`/`completed_at` change as a task progresses. This repo has no migration
+files (`prisma db push` on every boot, per `docker-entrypoint.sh`), so the change ships
+as a normal schema edit with no separate migration step.
 
 ## Data layer: status derivation
 
@@ -72,10 +88,12 @@ derives each member's status from their current task set:
 - else (only `done` tasks, or none at all) → **idle**
 
 Per member: `currentTask` = title of the running task, else the oldest queued task's
-title, else `undefined`. `tasksCompleted` = count of `done` tasks. `lastActive` = most
-recent of `completed_at`/`started_at`/`created_at` across their tasks. `recentActivity` =
-recent tasks sorted by that same recency, mapped to `{ timestamp, action: title, result:
-status }`. `totalCost` = 0 (no cost data in kanban; the field exists in the `Agent` shape
+title (by `kanbanCreatedAt`), else `undefined`. `tasksCompleted` = count of `done` tasks.
+Each task's own "most recent" timestamp is `kanbanCompletedAt ?? kanbanStartedAt ??
+kanbanCreatedAt`; `lastActive` = the max of that across a member's tasks, and
+`recentActivity` = tasks sorted by that same value descending, mapped to `{ timestamp,
+action: title, result: status }`. `totalCost` = 0 (no cost data in kanban; the field
+exists in the `Agent` shape
 but was never rendered in the UI either, real or fictional).
 
 Role names/emoji/descriptions are a small static roster in the route (they come from
