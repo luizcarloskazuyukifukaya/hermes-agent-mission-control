@@ -196,11 +196,13 @@ export function Sidebar() {
           <div className="space-y-5">
             {navGroups.map((group) => (
               <div key={group.name}>
-                {!collapsed && (
-                  <h3 className="eyebrow px-3 mb-1.5 !text-[10px] !text-[var(--text-4)]">
-                    {group.name}
-                  </h3>
-                )}
+                <h3
+                  className={`eyebrow px-3 mb-1.5 !text-[10px] !text-[var(--text-4)] ${
+                    collapsed ? "md:hidden" : ""
+                  }`}
+                >
+                  {group.name}
+                </h3>
                 {collapsed && (
                   <div className="mx-3 mb-1.5 border-t border-[var(--line)] md:block hidden" />
                 )}
@@ -230,15 +232,22 @@ export function Sidebar() {
                               isActive ? "text-[var(--text)]" : "text-[var(--text-3)] group-hover:text-[var(--text-2)]"
                             }`}
                           />
-                          {!collapsed && (
-                            <span className="text-[13.5px] font-medium">{item.label}</span>
-                          )}
+                          <span
+                            className={`text-[13.5px] font-medium ${
+                              collapsed ? "md:hidden" : ""
+                            }`}
+                          >
+                            {item.label}
+                          </span>
                         </Link>
-                        {!collapsed &&
-                          "anchors" in group &&
+                        {"anchors" in group &&
                           isActive &&
                           (group as { anchors?: { href: string; label: string }[] }).anchors && (
-                            <div className="ml-[26px] mt-0.5 space-y-0.5 border-l border-[var(--line)] pl-3">
+                            <div
+                              className={`ml-[26px] mt-0.5 space-y-0.5 border-l border-[var(--line)] pl-3 ${
+                                collapsed ? "md:hidden" : ""
+                              }`}
+                            >
                               {(group as { anchors: { href: string; label: string }[] }).anchors.map(
                                 (a) => (
                                   <a
@@ -268,7 +277,7 @@ export function Sidebar() {
               <span className="absolute inline-flex h-full w-full rounded-full bg-[var(--up)] opacity-60 animate-ping" />
               <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[var(--up)]" />
             </span>
-            {!collapsed && <span>All systems online</span>}
+            <span className={collapsed ? "md:hidden" : ""}>All systems online</span>
           </div>
         </div>
       </aside>
