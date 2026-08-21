@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { VDecentOverviewCard } from "@/components/vdecent-overview-card";
 
 function greeting() {
   const h = new Date().getHours();
@@ -33,6 +34,7 @@ export default function Dashboard() {
           {time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
         </p>
       </div>
+      <VDecentOverviewCard />
     </div>
   );
 }
