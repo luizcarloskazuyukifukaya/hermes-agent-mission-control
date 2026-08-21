@@ -506,3 +506,16 @@ model HermesMemory {
   @@index([type])
   @@index([status])
 }
+
+model PersonalTask {
+  id        String    @id @default(cuid())
+  name      String
+  status    String    @default("Not started")
+  priority  String?
+  category  String?
+  dueDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([status])
+}
