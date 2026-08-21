@@ -105,14 +105,16 @@ model TweetMetric {
 }
 
 model Idea {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  category    String?
-  type        String?
-  model       String?
-  status      String?
-  timestamp   DateTime @default(now())
+  id              String   @id @default(uuid())
+  title           String
+  description     String?
+  category        String?
+  type            String?
+  model           String?
+  status          String?
+  estimatedTime   String?
+  rejectionReason String?
+  timestamp       DateTime @default(now())
 
   @@index([category])
   @@index([type])
@@ -508,14 +510,15 @@ model HermesMemory {
 }
 
 model PersonalTask {
-  id        String    @id @default(cuid())
-  name      String
-  status    String    @default("Not started")
-  priority  String?
-  category  String?
-  dueDate   DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  status      String    @default("Not started")
+  priority    String?
+  category    String?
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([status])
 }
