@@ -41,7 +41,8 @@ export async function PUT(req: NextRequest) {
       data: updates,
     });
     return NextResponse.json(idea);
-  } catch {
+  } catch (error) {
+    console.error("Update idea error:", error);
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 }

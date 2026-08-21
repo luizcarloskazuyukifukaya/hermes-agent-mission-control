@@ -8,7 +8,6 @@ interface Idea {
   id: string;
   title: string;
   description: string;
-  source: string;
   category: string;
   estimatedTime: string;
   status: string;
@@ -46,7 +45,7 @@ const CATEGORY_CONFIG: Record<string, { label: string }> = {
 const inputCls =
   "w-full bg-[var(--surface-2)] border border-[var(--line)] rounded-[var(--r-sm)] px-4 py-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--line-strong)] transition-colors";
 
-const EMPTY_IDEA_EDIT: IdeaEditFields = { title: "", description: "", category: "build", estimatedTime: "1 hour" };
+const EMPTY_IDEA_EDIT: IdeaEditFields = { title: "", description: "", category: "", estimatedTime: "" };
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return "";
@@ -85,6 +84,7 @@ function IdeaCard({
 }) {
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [isMoving, setIsMoving] = useState(false);
 
   const status = idea.status || "new";
   const statusConf = STATUS_CONFIG[status] || STATUS_CONFIG.new;
@@ -109,9 +109,17 @@ function IdeaCard({
     setRejectReason("");
   };
 
-  const handleMoveToDone = () => updateIdea({ status: "done" });
+  const handleMoveToDone = async () => {
+    setIsMoving(true);
+    try {
+      await updateIdea({ status: "done" });
+    } finally {
+      setIsMoving(false);
+    }
+  };
 
   const handleMoveToTasks = async () => {
+    setIsMoving(true);
     try {
       const res = await fetch("/api/tasks", {
         method: "POST",
@@ -131,6 +139,8 @@ function IdeaCard({
       onUpdate();
     } catch (e) {
       console.error("Failed to move idea to tasks", e);
+    } finally {
+      setIsMoving(false);
     }
   };
 
@@ -158,6 +168,7 @@ function IdeaCard({
             onChange={(e) => onEditFieldsChange({ ...editFields, category: e.target.value })}
             className="flex-1 bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text-2)] px-3 py-2.5 rounded-[var(--r-sm)] text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
           >
+            <option value="">No category</option>
             <option value="build">Build</option>
             <option value="content">Content</option>
             <option value="feature">Feature</option>
@@ -169,6 +180,7 @@ function IdeaCard({
             onChange={(e) => onEditFieldsChange({ ...editFields, estimatedTime: e.target.value })}
             className="flex-1 bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text-2)] px-3 py-2.5 rounded-[var(--r-sm)] text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
           >
+            <option value="">No estimate</option>
             <option value="30 minutes">30 min</option>
             <option value="1 hour">1 hour</option>
             <option value="2 hours">2 hours</option>
@@ -249,11 +261,6 @@ function IdeaCard({
         </div>
       )}
 
-      {/* Source */}
-      {idea.source && idea.source !== "manual" && (
-        <p className="text-[var(--text-4)] text-[11px] num mb-3">via {idea.source}</p>
-      )}
-
       {/* Actions */}
       {!isDead && !isApproved && !isRejecting && (
         <div className="flex gap-2">
@@ -280,7 +287,8 @@ function IdeaCard({
         <div className="flex gap-2">
           <button
             onClick={handleMoveToTasks}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors"
+            disabled={isMoving}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ color: "var(--accent)", borderColor: "color-mix(in srgb, var(--accent) 24%, transparent)" }}
           >
             <ArrowRight className="w-3 h-3" />
@@ -288,7 +296,8 @@ function IdeaCard({
           </button>
           <button
             onClick={handleMoveToDone}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors"
+            disabled={isMoving}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ color: "var(--up)", borderColor: "color-mix(in srgb, var(--up) 24%, transparent)" }}
           >
             <CheckCircle2 className="w-3 h-3" />
@@ -336,7 +345,7 @@ export default function IdeasPage() {
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
-  const [newIdea, setNewIdea] = useState({ title: "", description: "", source: "manual", category: "build", estimatedTime: "1 hour", status: "new" });
+  const [newIdea, setNewIdea] = useState({ title: "", description: "", category: "build", estimatedTime: "1 hour", status: "new" });
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<IdeaEditFields>(EMPTY_IDEA_EDIT);
@@ -364,7 +373,7 @@ export default function IdeasPage() {
         body: JSON.stringify({ ...newIdea, createdAt: new Date().toISOString() }),
       });
       await fetchIdeas();
-      setNewIdea({ title: "", description: "", source: "manual", category: "build", estimatedTime: "1 hour", status: "new" });
+      setNewIdea({ title: "", description: "", category: "build", estimatedTime: "1 hour", status: "new" });
       setShowForm(false);
     } catch { /* noop */ } finally { setSubmitting(false); }
   };
@@ -374,8 +383,8 @@ export default function IdeasPage() {
     setEditFields({
       title: idea.title,
       description: idea.description || "",
-      category: idea.category || "build",
-      estimatedTime: idea.estimatedTime || "1 hour",
+      category: idea.category || "",
+      estimatedTime: idea.estimatedTime || "",
     });
   }
 
@@ -393,9 +402,9 @@ export default function IdeasPage() {
         body: JSON.stringify({
           id,
           title: editFields.title.trim(),
-          description: editFields.description,
-          category: editFields.category,
-          estimatedTime: editFields.estimatedTime,
+          description: editFields.description || null,
+          category: editFields.category || null,
+          estimatedTime: editFields.estimatedTime || null,
         }),
       });
       cancelEditIdea();
