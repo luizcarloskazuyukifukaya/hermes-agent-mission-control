@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 function serialize(task: {
   id: string;
   name: string;
+  description: string | null;
   status: string;
   priority: string | null;
   category: string | null;
@@ -14,6 +15,7 @@ function serialize(task: {
   return {
     id: task.id,
     name: task.name,
+    description: task.description,
     status: task.status,
     priority: task.priority,
     category: task.category,
@@ -33,7 +35,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { name, priority, category, dueDate } = await req.json();
+    const { name, description, priority, category, dueDate } = await req.json();
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -42,6 +44,7 @@ export async function POST(req: Request) {
     const task = await prisma.personalTask.create({
       data: {
         name: name.trim(),
+        description: description || null,
         priority: priority || null,
         category: category || null,
         dueDate: dueDate ? new Date(dueDate) : null,
@@ -57,7 +60,7 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { id, status, name, priority, category, dueDate } = await req.json();
+    const { id, status, name, description, priority, category, dueDate } = await req.json();
 
     if (!id || typeof id !== "string") {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -71,6 +74,7 @@ export async function PATCH(req: Request) {
       }
       data.name = name.trim();
     }
+    if (description !== undefined) data.description = description || null;
     if (priority !== undefined) data.priority = priority || null;
     if (category !== undefined) data.category = category || null;
     if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
