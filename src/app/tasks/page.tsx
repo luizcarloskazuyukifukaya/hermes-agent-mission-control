@@ -6,6 +6,7 @@ import { Button, Pill, rise } from "@/components/ui/kit";
 interface Task {
   id: string;
   name: string;
+  description: string | null;
   status: string;
   priority: string | null;
   category: string | null;
@@ -14,6 +15,7 @@ interface Task {
 
 interface EditFields {
   name: string;
+  description: string;
   priority: string;
   category: string;
   dueDate: string;
@@ -26,7 +28,7 @@ const columns = [
   { id: "Done", label: "Done" },
 ];
 
-const EMPTY_EDIT: EditFields = { name: "", priority: "", category: "", dueDate: "" };
+const EMPTY_EDIT: EditFields = { name: "", description: "", priority: "", category: "", dueDate: "" };
 
 function isOverdue(task: Task): boolean {
   if (!task.dueDate || task.status === "Done") return false;
@@ -43,6 +45,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState("");
+  const [newDescription, setNewDescription] = useState("");
   const [newPriority, setNewPriority] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
@@ -75,12 +78,14 @@ export default function TasksPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newTask,
+          description: newDescription || undefined,
           priority: newPriority || undefined,
           category: newCategory || undefined,
           dueDate: newDueDate || undefined,
         }),
       });
       setNewTask("");
+      setNewDescription("");
       setNewPriority("");
       setNewCategory("");
       setNewDueDate("");
@@ -108,6 +113,7 @@ export default function TasksPage() {
     setEditingId(task.id);
     setEditFields({
       name: task.name,
+      description: task.description || "",
       priority: task.priority || "",
       category: task.category || "",
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
@@ -128,6 +134,7 @@ export default function TasksPage() {
         body: JSON.stringify({
           id: taskId,
           name: editFields.name.trim(),
+          description: editFields.description || null,
           priority: editFields.priority || null,
           category: editFields.category || null,
           dueDate: editFields.dueDate || null,
@@ -200,6 +207,13 @@ export default function TasksPage() {
               className="w-full bg-[var(--surface-1)] border border-[var(--line)] text-[var(--text)] placeholder-[var(--text-3)] rounded-[var(--r-md)] px-4 py-3 mb-3 text-[14px] focus:outline-none focus:border-[var(--line-strong)]"
               onKeyDown={(e) => e.key === "Enter" && addTask()}
               autoFocus
+            />
+            <textarea
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              placeholder="Description (optional)"
+              rows={2}
+              className="w-full bg-[var(--surface-1)] border border-[var(--line)] text-[var(--text)] placeholder-[var(--text-3)] rounded-[var(--r-md)] px-4 py-3 mb-3 text-[14px] resize-none focus:outline-none focus:border-[var(--line-strong)]"
             />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               <select
@@ -313,6 +327,13 @@ function TaskCard({
           className="w-full bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text)] rounded-[var(--r-sm)] px-2.5 py-1.5 text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
           autoFocus
         />
+        <textarea
+          value={editFields.description}
+          onChange={(e) => onEditFieldsChange({ ...editFields, description: e.target.value })}
+          placeholder="Description (optional)"
+          rows={2}
+          className="w-full bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text)] placeholder-[var(--text-3)] rounded-[var(--r-sm)] px-2.5 py-1.5 text-[12px] resize-none focus:outline-none focus:border-[var(--line-strong)]"
+        />
         <div className="grid grid-cols-2 gap-2">
           <select
             value={editFields.priority}
@@ -350,7 +371,7 @@ function TaskCard({
 
   return (
     <div className="rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--surface-1)] p-3.5 transition-colors hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)] cursor-pointer group">
-      <div className="flex items-start justify-between gap-2 mb-3">
+      <div className="flex items-start justify-between gap-2 mb-2">
         <p className={`font-medium text-[13px] leading-relaxed ${done ? "text-[var(--text-3)] line-through" : "text-[var(--text)]"}`}>
           {task.name}
         </p>
@@ -373,6 +394,9 @@ function TaskCard({
           </button>
         </div>
       </div>
+      {task.description && (
+        <p className="text-[var(--text-2)] text-[12px] leading-relaxed mb-3">{task.description}</p>
+      )}
       <div className="flex items-center gap-2 flex-wrap">
         {task.priority && (
           <Pill tone={priorityTone[task.priority] || "neutral"}>{task.priority}</Pill>
