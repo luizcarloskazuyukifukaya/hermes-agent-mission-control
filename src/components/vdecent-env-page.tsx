@@ -163,8 +163,13 @@ export function VDecentEnvPage({ env, title }: { env: "dev" | "pro"; title: stri
   useEffect(() => {
     setLoading(true);
     fetch(`/api/vdecent/${env}`)
-      .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && typeof d === "object" && "am" in d && "nm" in d) {
+          setData(d as EnvDetail);
+        }
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, [env]);
 
