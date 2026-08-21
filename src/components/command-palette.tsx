@@ -10,7 +10,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
-  Activity,
+  GitBranch,
+  Server,
   Bot,
   Lightbulb,
   ListChecks,
@@ -29,7 +30,8 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "Client Pulse", href: "/client-pulse", icon: Activity },
+  { label: "V-Decent Dev", href: "/vdecent-dev", icon: GitBranch },
+  { label: "V-Decent Pro", href: "/vdecent-pro", icon: Server },
   { label: "Agents", href: "/agents", icon: Bot },
   { label: "Ideas", href: "/ideas", icon: Lightbulb },
   { label: "Tasks", href: "/tasks", icon: ListChecks },

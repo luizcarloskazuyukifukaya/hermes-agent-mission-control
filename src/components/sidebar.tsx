@@ -8,10 +8,10 @@ import {
   Bot,
   Lightbulb,
   ClipboardList,
-  HeartPulse,
   Cpu,
   BookOpen,
-  Workflow,
+  GitBranch,
+  Server,
   Menu,
   X,
 } from "lucide-react";
@@ -26,15 +26,10 @@ const navGroups = [
     ],
   },
   {
-    name: "Content",
-    items: [
-      { href: "/content-os", label: "Pipeline", icon: Workflow },
-    ],
-  },
-  {
     name: "Data",
     items: [
-      { href: "/client-pulse", label: "Client Pulse", icon: HeartPulse },
+      { href: "/vdecent-dev", label: "V-Decent Dev", icon: GitBranch },
+      { href: "/vdecent-pro", label: "V-Decent Pro", icon: Server },
     ],
   },
   {
