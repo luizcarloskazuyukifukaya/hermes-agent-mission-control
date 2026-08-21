@@ -4,12 +4,22 @@ import { useEffect, useState, useCallback } from "react";
 import SupportOfficeView from "@/components/SupportOfficeView";
 import { AgentCard, type Agent } from "@/components/agent-card";
 import { AgentChat } from "@/components/agent-chat";
+import { TaskBoard, type Task } from "@/components/task-board";
+
+interface BoardData {
+  tasks: Task[];
+  total: number;
+  lastSync: string | null;
+}
+
+const EMPTY_BOARD: BoardData = { tasks: [], total: 0, lastSync: null };
 
 export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: string }) {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [board, setBoard] = useState<BoardData>(EMPTY_BOARD);
   const [loading, setLoading] = useState(true);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
-  const [view, setView] = useState<"cards" | "office">("office");
+  const [view, setView] = useState<"cards" | "office" | "board">("office");
   const [chatAgent, setChatAgent] = useState<Agent | null>(null);
 
   const loadAgents = useCallback(async () => {
@@ -21,11 +31,20 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
     setLoading(false);
   }, [env]);
 
+  const loadBoard = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/support-team/${env}/tasks`);
+      const data = await res.json();
+      if (data && Array.isArray(data.tasks)) setBoard(data);
+    } catch {}
+  }, [env]);
+
   useEffect(() => {
     loadAgents();
-    const interval = setInterval(loadAgents, 10000); // poll every 10s
+    loadBoard();
+    const interval = setInterval(() => { loadAgents(); loadBoard(); }, 10000); // poll every 10s
     return () => clearInterval(interval);
-  }, [loadAgents]);
+  }, [loadAgents, loadBoard]);
 
   if (loading) {
     return (
@@ -90,6 +109,16 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
               }`}
             >
               Cards
+            </button>
+            <button
+              onClick={() => setView("board")}
+              className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
+                view === "board"
+                  ? "bg-white/[0.08] text-[var(--text)]"
+                  : "text-[var(--text-3)] hover:text-[var(--text-2)]"
+              }`}
+            >
+              Board
             </button>
           </div>
         </div>
@@ -183,6 +212,17 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
             </div>
           </div>
         </>
+      )}
+
+      {/* Board View */}
+      {view === "board" && (
+        <TaskBoard
+          tasks={board.tasks}
+          total={board.total}
+          lastSync={board.lastSync}
+          label="Issue board"
+          title={`${title} incidents`}
+        />
       )}
       </div>
     </>
