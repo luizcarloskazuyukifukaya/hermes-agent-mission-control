@@ -27,6 +27,7 @@ import os from "node:os";
 const execFileP = promisify(execFile);
 const HERMES = process.env.HERMES_BIN || "hermes";
 const BOARD = process.env.HERMES_BOARD || "default";
+const KANBAN_BOARDS = [BOARD, "vdecent-support-dev", "vdecent-support-prod"];
 const POLL_MS = Number(process.env.BRIDGE_POLL_MS || 5000);
 const MIRROR_MS = Number(process.env.BRIDGE_MIRROR_MS || 30000);
 const RUN_TIMEOUT_MS = Number(process.env.BRIDGE_RUN_TIMEOUT_MS || 240000);
@@ -61,6 +62,10 @@ async function hermes(args, { timeout = 30000 } = {}) {
   return stdout;
 }
 
+function toDate(unixSeconds) {
+  return unixSeconds != null ? new Date(unixSeconds * 1000) : null;
+}
+
 async function emit(kind, title, { detail = null, agent = "hermes", level = "info", meta = null } = {}) {
   await q(
     `INSERT INTO "AgentEvent" (id, kind, title, detail, agent, level, meta, "createdAt")
@@ -78,14 +83,14 @@ async function setStore(key, data) {
 }
 
 /* ─────────────── PULL: mirror Hermes → Postgres ─────────────── */
-async function mirrorKanban() {
+async function mirrorKanban(board) {
   let tasks = [];
   try {
     // NB: this Hermes CLI wants --board BEFORE the subcommand.
-    const out = await hermes(["kanban", "--board", BOARD, "list", "--json"], { timeout: 15000 });
+    const out = await hermes(["kanban", "--board", board, "list", "--json"], { timeout: 15000 });
     const parsed = JSON.parse(out || "[]");
     tasks = Array.isArray(parsed) ? parsed : parsed.tasks || [];
-  } catch (e) { log("kanban list failed:", e.message.split("\n")[0]); return; }
+  } catch (e) { log(`kanban list failed (${board}):`, e.message.split("\n")[0]); return; }
 
   const seen = new Set();
   for (const t of tasks) {
@@ -93,21 +98,24 @@ async function mirrorKanban() {
     if (!id) continue;
     seen.add(id);
     await q(
-      `INSERT INTO "HermesTask" (id, board, title, assignee, status, priority, result, "updatedAt", "syncedAt")
-       VALUES ($1,$2,$3,$4,$5,$6,$7, now(), now())
+      `INSERT INTO "HermesTask" (id, board, title, assignee, status, priority, result, "kanbanCreatedAt", "kanbanStartedAt", "kanbanCompletedAt", "updatedAt", "syncedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), now())
        ON CONFLICT (id) DO UPDATE SET
          title=EXCLUDED.title, assignee=EXCLUDED.assignee, status=EXCLUDED.status,
-         priority=EXCLUDED.priority, result=EXCLUDED.result, "syncedAt"=now()`,
-      [id, BOARD, String(t.title ?? "untitled").slice(0, 300), t.assignee ?? null,
+         priority=EXCLUDED.priority, result=EXCLUDED.result,
+         "kanbanCreatedAt"=EXCLUDED."kanbanCreatedAt", "kanbanStartedAt"=EXCLUDED."kanbanStartedAt",
+         "kanbanCompletedAt"=EXCLUDED."kanbanCompletedAt", "syncedAt"=now()`,
+      [id, board, String(t.title ?? "untitled").slice(0, 300), t.assignee ?? null,
        String(t.status ?? "todo"), t.priority != null ? Number(t.priority) : null,
-       t.result ? String(t.result).slice(0, 2000) : null]
+       t.result ? String(t.result).slice(0, 2000) : null,
+       toDate(t.created_at), toDate(t.started_at), toDate(t.completed_at)]
     );
   }
   // prune tasks that vanished from the board
   if (seen.size) {
-    await q(`DELETE FROM "HermesTask" WHERE board=$1 AND id <> ALL($2::text[])`, [BOARD, [...seen]]);
+    await q(`DELETE FROM "HermesTask" WHERE board=$1 AND id <> ALL($2::text[])`, [board, [...seen]]);
   } else {
-    await q(`DELETE FROM "HermesTask" WHERE board=$1`, [BOARD]);
+    await q(`DELETE FROM "HermesTask" WHERE board=$1`, [board]);
   }
 }
 
@@ -293,7 +301,7 @@ async function processQueue() {
 
 /* ─────────────── loops ─────────────── */
 async function mirrorTick() {
-  try { await mirrorKanban(); } catch (e) { log("mirrorKanban err", e.message); }
+  try { for (const b of KANBAN_BOARDS) await mirrorKanban(b); } catch (e) { log("mirrorKanban err", e.message); }
   try { await mirrorCrons(); } catch (e) { log("mirrorCrons err", e.message); }
   try { await mirrorHealth(); } catch (e) { log("mirrorHealth err", e.message); }
   try { await mirrorWiki(); } catch (e) { log("mirrorWiki err", e.message); }

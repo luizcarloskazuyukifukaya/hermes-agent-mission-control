@@ -483,15 +483,18 @@ model AgentEvent {
 }
 
 model HermesTask {
-  id        String   @id                   // Hermes task id
-  board     String   @default("default")
-  title     String
-  assignee  String?
-  status    String   @default("todo")
-  priority  Int?
-  result    String?
-  updatedAt DateTime @default(now())
-  syncedAt  DateTime @updatedAt
+  id                String    @id                   // Hermes task id
+  board             String    @default("default")
+  title             String
+  assignee          String?
+  status            String    @default("todo")
+  priority          Int?
+  result            String?
+  kanbanCreatedAt   DateTime?
+  kanbanStartedAt   DateTime?
+  kanbanCompletedAt DateTime?
+  updatedAt         DateTime  @default(now())
+  syncedAt          DateTime  @updatedAt
 
   @@index([board])
   @@index([status])
