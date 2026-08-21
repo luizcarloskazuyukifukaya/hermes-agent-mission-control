@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Clock, Lightbulb, Check, X } from "lucide-react";
+import { Plus, Clock, Lightbulb, Check, X, Pencil, Trash2, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Panel, Pill, Button, Skeleton, EmptyState, rise } from "@/components/ui/kit";
 
 interface Idea {
@@ -15,6 +15,13 @@ interface Idea {
   createdAt?: string;
   timestamp?: string;
   rejectionReason?: string;
+}
+
+interface IdeaEditFields {
+  title: string;
+  description: string;
+  category: string;
+  estimatedTime: string;
 }
 
 type Tone = "neutral" | "up" | "down" | "warn" | "accent";
@@ -39,6 +46,8 @@ const CATEGORY_CONFIG: Record<string, { label: string }> = {
 const inputCls =
   "w-full bg-[var(--surface-2)] border border-[var(--line)] rounded-[var(--r-sm)] px-4 py-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--line-strong)] transition-colors";
 
+const EMPTY_IDEA_EDIT: IdeaEditFields = { title: "", description: "", category: "build", estimatedTime: "1 hour" };
+
 function formatDate(dateStr?: string) {
   if (!dateStr) return "";
   try {
@@ -53,7 +62,27 @@ function formatDate(dateStr?: string) {
   } catch { return ""; }
 }
 
-function IdeaCard({ idea, onUpdate }: { idea: Idea; onUpdate: () => void }) {
+function IdeaCard({
+  idea,
+  isEditing,
+  editFields,
+  onEditFieldsChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
+  onUpdate,
+}: {
+  idea: Idea;
+  isEditing: boolean;
+  editFields: IdeaEditFields;
+  onEditFieldsChange: (fields: IdeaEditFields) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onDelete: () => void;
+  onUpdate: () => void;
+}) {
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -80,9 +109,85 @@ function IdeaCard({ idea, onUpdate }: { idea: Idea; onUpdate: () => void }) {
     setRejectReason("");
   };
 
+  const handleMoveToDone = () => updateIdea({ status: "done" });
+
+  const handleMoveToTasks = async () => {
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: idea.title,
+          description: idea.description || undefined,
+          category: idea.category || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error(`Failed to create task: ${res.status}`);
+      await fetch("/api/ideas", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: idea.id }),
+      });
+      onUpdate();
+    } catch (e) {
+      console.error("Failed to move idea to tasks", e);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <Panel className="p-5 space-y-3">
+        <input
+          type="text"
+          value={editFields.title}
+          onChange={(e) => onEditFieldsChange({ ...editFields, title: e.target.value })}
+          className={inputCls}
+          placeholder="Idea title"
+          autoFocus
+        />
+        <textarea
+          value={editFields.description}
+          onChange={(e) => onEditFieldsChange({ ...editFields, description: e.target.value })}
+          className={`${inputCls} resize-none`}
+          placeholder="Describe the idea"
+          rows={3}
+        />
+        <div className="flex gap-3">
+          <select
+            value={editFields.category}
+            onChange={(e) => onEditFieldsChange({ ...editFields, category: e.target.value })}
+            className="flex-1 bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text-2)] px-3 py-2.5 rounded-[var(--r-sm)] text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
+          >
+            <option value="build">Build</option>
+            <option value="content">Content</option>
+            <option value="feature">Feature</option>
+            <option value="thread">Thread</option>
+            <option value="experiment">Experiment</option>
+          </select>
+          <select
+            value={editFields.estimatedTime}
+            onChange={(e) => onEditFieldsChange({ ...editFields, estimatedTime: e.target.value })}
+            className="flex-1 bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text-2)] px-3 py-2.5 rounded-[var(--r-sm)] text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
+          >
+            <option value="30 minutes">30 min</option>
+            <option value="1 hour">1 hour</option>
+            <option value="2 hours">2 hours</option>
+            <option value="3 hours">3 hours</option>
+            <option value="Half day">Half day</option>
+            <option value="Full day">Full day</option>
+          </select>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button variant="primary" size="sm" onClick={onSaveEdit}>Save</Button>
+          <Button variant="ghost" size="sm" onClick={onCancelEdit}>Cancel</Button>
+        </div>
+      </Panel>
+    );
+  }
+
   return (
     <Panel
-      className={`p-5 ${isDead ? "opacity-55 hover:opacity-80 transition-opacity" : ""}`}
+      className={`p-5 group ${isDead ? "opacity-55 hover:opacity-80 transition-opacity" : ""}`}
       style={isApproved ? { borderColor: "color-mix(in srgb, var(--up) 28%, transparent)" } : undefined}
     >
       {/* Top row */}
@@ -94,14 +199,34 @@ function IdeaCard({ idea, onUpdate }: { idea: Idea; onUpdate: () => void }) {
           </Pill>
           <Pill tone="neutral">{catConf.label}</Pill>
         </div>
-        <div className="flex items-center gap-3 text-[11px] num text-[var(--text-4)] shrink-0">
-          {date && <span>{formatDate(date)}</span>}
-          {idea.estimatedTime && (
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {idea.estimatedTime}
-            </span>
-          )}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-3 text-[11px] num text-[var(--text-4)]">
+            {date && <span>{formatDate(date)}</span>}
+            {idea.estimatedTime && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {idea.estimatedTime}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={onStartEdit}
+              className="text-[var(--text-3)] hover:text-[var(--text)] transition-colors p-1"
+              aria-label="Edit idea"
+              title="Edit idea"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={onDelete}
+              className="text-[var(--text-3)] hover:text-[var(--down)] transition-colors p-1"
+              aria-label="Delete idea"
+              title="Delete idea"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -152,9 +277,23 @@ function IdeaCard({ idea, onUpdate }: { idea: Idea; onUpdate: () => void }) {
       )}
 
       {isApproved && (
-        <div className="flex items-center gap-1.5 text-[12px]" style={{ color: "var(--up)" }}>
-          <Check className="w-3 h-3" />
-          <span>Approved</span>
+        <div className="flex gap-2">
+          <button
+            onClick={handleMoveToTasks}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors"
+            style={{ color: "var(--accent)", borderColor: "color-mix(in srgb, var(--accent) 24%, transparent)" }}
+          >
+            <ArrowRight className="w-3 h-3" />
+            Move to Tasks
+          </button>
+          <button
+            onClick={handleMoveToDone}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors"
+            style={{ color: "var(--up)", borderColor: "color-mix(in srgb, var(--up) 24%, transparent)" }}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            Move to Done
+          </button>
         </div>
       )}
 
@@ -199,6 +338,8 @@ export default function IdeasPage() {
   const [showForm, setShowForm] = useState(false);
   const [newIdea, setNewIdea] = useState({ title: "", description: "", source: "manual", category: "build", estimatedTime: "1 hour", status: "new" });
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editFields, setEditFields] = useState<IdeaEditFields>(EMPTY_IDEA_EDIT);
 
   const fetchIdeas = useCallback(async () => {
     try {
@@ -227,6 +368,55 @@ export default function IdeasPage() {
       setShowForm(false);
     } catch { /* noop */ } finally { setSubmitting(false); }
   };
+
+  function startEditIdea(idea: Idea) {
+    setEditingId(idea.id);
+    setEditFields({
+      title: idea.title,
+      description: idea.description || "",
+      category: idea.category || "build",
+      estimatedTime: idea.estimatedTime || "1 hour",
+    });
+  }
+
+  function cancelEditIdea() {
+    setEditingId(null);
+    setEditFields(EMPTY_IDEA_EDIT);
+  }
+
+  async function saveEditIdea(id: string) {
+    if (!editFields.title.trim()) return;
+    try {
+      await fetch("/api/ideas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          title: editFields.title.trim(),
+          description: editFields.description,
+          category: editFields.category,
+          estimatedTime: editFields.estimatedTime,
+        }),
+      });
+      cancelEditIdea();
+      fetchIdeas();
+    } catch (e) {
+      console.error("Failed to save idea edit", e);
+    }
+  }
+
+  async function deleteIdea(id: string) {
+    try {
+      await fetch("/api/ideas", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      fetchIdeas();
+    } catch (e) {
+      console.error("Failed to delete idea", e);
+    }
+  }
 
   const sorted = [...ideas].sort((a, b) => {
     const da = a.createdAt || a.timestamp || "";
@@ -392,7 +582,18 @@ export default function IdeasPage() {
       {/* Ideas grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((idea) => (
-          <IdeaCard key={idea.id} idea={idea} onUpdate={fetchIdeas} />
+          <IdeaCard
+            key={idea.id}
+            idea={idea}
+            isEditing={editingId === idea.id}
+            editFields={editFields}
+            onEditFieldsChange={setEditFields}
+            onStartEdit={() => startEditIdea(idea)}
+            onCancelEdit={cancelEditIdea}
+            onSaveEdit={() => saveEditIdea(idea.id)}
+            onDelete={() => deleteIdea(idea.id)}
+            onUpdate={fetchIdeas}
+          />
         ))}
       </div>
 
