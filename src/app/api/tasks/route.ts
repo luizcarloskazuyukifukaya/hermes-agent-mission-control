@@ -1,53 +1,30 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-// This would connect to Notion API
-// For now, return mock data
+export const dynamic = "force-dynamic";
 
-const NOTION_API_KEY = process.env.NOTION_API_KEY;
-const DATABASE_ID = "1264208d-f768-4604-b4cb-09f4d6fd41e3"; // Max's Tasks DB
+function serialize(task: {
+  id: string;
+  name: string;
+  status: string;
+  priority: string | null;
+  category: string | null;
+  dueDate: Date | null;
+}) {
+  return {
+    id: task.id,
+    name: task.name,
+    status: task.status,
+    priority: task.priority,
+    category: task.category,
+    dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+  };
+}
 
 export async function GET() {
   try {
-    if (!NOTION_API_KEY) {
-      // Return mock data if no API key
-      return NextResponse.json({
-        tasks: [
-          { id: "1", name: "Review Polymarket bot strategy", status: "In progress", priority: "High", category: "Research" },
-          { id: "2", name: "Build Hermy HQ dashboard", status: "In progress", priority: "High", category: "Content" },
-          { id: "3", name: "Daily brief automation", status: "Approved", priority: "Medium", category: "Admin" },
-        ],
-      });
-    }
-
-    const res = await fetch(`https://api.notion.com/v1/databases/${DATABASE_ID}/query`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${NOTION_API_KEY}`,
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        filter: {
-          property: "Status",
-          status: {
-            does_not_equal: "Done",
-          },
-        },
-      }),
-    });
-
-    const data = await res.json();
-    
-    const tasks = data.results?.map((page: any) => ({
-      id: page.id,
-      name: page.properties.Name?.title?.[0]?.plain_text || "Untitled",
-      status: page.properties.Status?.status?.name || "Not started",
-      priority: page.properties.Priority?.select?.name || "",
-      category: page.properties.Category?.select?.name || "",
-      dueDate: page.properties["Due Date"]?.date?.start || null,
-    })) || [];
-
-    return NextResponse.json({ tasks });
+    const tasks = await prisma.personalTask.findMany({ orderBy: { createdAt: "asc" } });
+    return NextResponse.json({ tasks: tasks.map(serialize) });
   } catch (error) {
     console.error("Tasks API error:", error);
     return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 });
@@ -56,30 +33,22 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { name, status } = await req.json();
-    
-    if (!NOTION_API_KEY) {
-      return NextResponse.json({ success: true, message: "Mock - would create task in Notion" });
+    const { name, priority, category, dueDate } = await req.json();
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
-    const res = await fetch("https://api.notion.com/v1/pages", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${NOTION_API_KEY}`,
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
+    const task = await prisma.personalTask.create({
+      data: {
+        name: name.trim(),
+        priority: priority || null,
+        category: category || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
       },
-      body: JSON.stringify({
-        parent: { database_id: DATABASE_ID },
-        properties: {
-          Name: { title: [{ text: { content: name } }] },
-          Status: { status: { name: status || "Not started" } },
-        },
-      }),
     });
 
-    const data = await res.json();
-    return NextResponse.json({ success: true, task: data });
+    return NextResponse.json({ task: serialize(task) });
   } catch (error) {
     console.error("Create task error:", error);
     return NextResponse.json({ error: "Failed to create task" }, { status: 500 });
@@ -88,30 +57,39 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const { id, status } = await req.json();
-    
-    if (!NOTION_API_KEY) {
-      return NextResponse.json({ success: true, message: "Mock - would update task in Notion" });
+    const { id, status, name, priority, category, dueDate } = await req.json();
+
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    const res = await fetch(`https://api.notion.com/v1/pages/${id}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${NOTION_API_KEY}`,
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        properties: {
-          Status: { status: { name: status } },
-        },
-      }),
-    });
+    const data: Record<string, unknown> = {};
+    if (status !== undefined) data.status = status;
+    if (name !== undefined) data.name = name;
+    if (priority !== undefined) data.priority = priority || null;
+    if (category !== undefined) data.category = category || null;
+    if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
 
-    const data = await res.json();
-    return NextResponse.json({ success: true, task: data });
+    const task = await prisma.personalTask.update({ where: { id }, data });
+    return NextResponse.json({ task: serialize(task) });
   } catch (error) {
     console.error("Update task error:", error);
     return NextResponse.json({ error: "Failed to update task" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { id } = await req.json();
+
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+
+    await prisma.personalTask.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete task error:", error);
+    return NextResponse.json({ error: "Failed to delete task" }, { status: 500 });
   }
 }
