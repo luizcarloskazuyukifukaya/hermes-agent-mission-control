@@ -24,6 +24,7 @@ import {
   Skeleton,
   Eyebrow,
 } from "@/components/ui/kit";
+import { timeAgo } from "@/lib/time-ago";
 import { HermesDispatches } from "@/components/hermes-dispatches";
 import { HermesRuns } from "@/components/hermes-runs";
 
@@ -82,20 +83,6 @@ interface Health {
 }
 
 // ── Helpers ───────────────────────────────────────────────
-function timeAgo(d: string | null): string {
-  if (!d) return "—";
-  const diff = Date.now() - new Date(d).getTime();
-  if (Number.isNaN(diff)) return "—";
-  const s = Math.floor(diff / 1000);
-  if (s < 45) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const days = Math.floor(h / 24);
-  return `${days}d ago`;
-}
-
 async function getJSON<T>(url: string): Promise<T | null> {
   try {
     const r = await fetch(url);
