@@ -214,20 +214,6 @@ model LongformScript {
   @@index([status])
 }
 
-model AgentState {
-  id             String    @id
-  name           String
-  emoji          String?
-  role           String?
-  status         String    @default("offline")
-  lastActive     DateTime?
-  tasksCompleted Int       @default(0)
-  totalCost      Float     @default(0)
-  currentTask    String?
-  recentActivity Json?     @default("[]")
-  updatedAt      DateTime  @updatedAt
-}
-
 model AgentBusMessage {
   id        String   @id @default(uuid())
   fromAgent String

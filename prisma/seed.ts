@@ -209,44 +209,6 @@ async function seedTweetMetrics() {
   console.log(`  ✅ ${raw.length} tweet metrics done`)
 }
 
-async function seedAgentState() {
-  const raw = readJson('agent-state.json') as any[]
-  if (!raw) return
-  console.log(`🤖 Seeding ${raw.length} agent states...`)
-
-  for (const d of raw) {
-    await prisma.agentState.upsert({
-      where: { id: d.id },
-      update: {
-        name: d.name,
-        emoji: d.emoji ?? null,
-        role: d.role ?? null,
-        status: d.status ?? 'offline',
-        lastActive: d.lastActive ? safeDate(d.lastActive) : null,
-        tasksCompleted: d.tasksCompleted ?? 0,
-        totalCost: d.totalCost ?? 0,
-        currentTask: d.currentTask ?? null,
-        recentActivity: d.recentActivity ?? [],
-        updatedAt: new Date(),
-      },
-      create: {
-        id: d.id,
-        name: d.name,
-        emoji: d.emoji ?? null,
-        role: d.role ?? null,
-        status: d.status ?? 'offline',
-        lastActive: d.lastActive ? safeDate(d.lastActive) : null,
-        tasksCompleted: d.tasksCompleted ?? 0,
-        totalCost: d.totalCost ?? 0,
-        currentTask: d.currentTask ?? null,
-        recentActivity: d.recentActivity ?? [],
-        updatedAt: new Date(),
-      },
-    })
-  }
-  console.log(`  ✅ ${raw.length} agent states done`)
-}
-
 async function seedContentCalendar() {
   const raw = readJson('content-calendar.json') as any
   if (!raw) return
@@ -288,7 +250,6 @@ async function seedContentRequests() {
 async function main() {
   console.log('🌱 Starting Max HQ data seed...\n')
 
-  await seedAgentState()
   await seedDrafts()
   await seedIdeas()
   await seedLongformScripts()
