@@ -21,6 +21,8 @@ interface IdeaEditFields {
   description: string;
   category: string;
   estimatedTime: string;
+  status: string;
+  rejectionReason: string;
 }
 
 type Tone = "neutral" | "up" | "down" | "warn" | "accent";
@@ -45,7 +47,7 @@ const CATEGORY_CONFIG: Record<string, { label: string }> = {
 const inputCls =
   "w-full bg-[var(--surface-2)] border border-[var(--line)] rounded-[var(--r-sm)] px-4 py-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--line-strong)] transition-colors";
 
-const EMPTY_IDEA_EDIT: IdeaEditFields = { title: "", description: "", category: "", estimatedTime: "" };
+const EMPTY_IDEA_EDIT: IdeaEditFields = { title: "", description: "", category: "", estimatedTime: "", status: "new", rejectionReason: "" };
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return "";
@@ -189,8 +191,36 @@ function IdeaCard({
             <option value="Full day">Full day</option>
           </select>
         </div>
+        <select
+          value={editFields.status}
+          onChange={(e) => onEditFieldsChange({ ...editFields, status: e.target.value })}
+          className="w-full bg-[var(--surface-2)] border border-[var(--line)] text-[var(--text-2)] px-3 py-2.5 rounded-[var(--r-sm)] text-[13px] focus:outline-none focus:border-[var(--line-strong)]"
+        >
+          <option value="new">New</option>
+          <option value="considering">Considering</option>
+          <option value="approved">Approved</option>
+          <option value="in-progress">In Progress</option>
+          <option value="done">Done</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        {editFields.status === "rejected" && (
+          <input
+            type="text"
+            value={editFields.rejectionReason}
+            onChange={(e) => onEditFieldsChange({ ...editFields, rejectionReason: e.target.value })}
+            placeholder="Why reject? (helps Sage learn)"
+            className={inputCls}
+          />
+        )}
         <div className="flex gap-2 pt-1">
-          <Button variant="primary" size="sm" onClick={onSaveEdit}>Save</Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onSaveEdit}
+            disabled={editFields.status === "rejected" && !editFields.rejectionReason.trim()}
+          >
+            Save
+          </Button>
           <Button variant="ghost" size="sm" onClick={onCancelEdit}>Cancel</Button>
         </div>
       </Panel>
@@ -385,6 +415,8 @@ export default function IdeasPage() {
       description: idea.description || "",
       category: idea.category || "",
       estimatedTime: idea.estimatedTime || "",
+      status: idea.status || "new",
+      rejectionReason: idea.rejectionReason || "",
     });
   }
 
@@ -395,6 +427,7 @@ export default function IdeasPage() {
 
   async function saveEditIdea(id: string) {
     if (!editFields.title.trim()) return;
+    if (editFields.status === "rejected" && !editFields.rejectionReason.trim()) return;
     try {
       await fetch("/api/ideas", {
         method: "PUT",
@@ -405,6 +438,8 @@ export default function IdeasPage() {
           description: editFields.description || null,
           category: editFields.category || null,
           estimatedTime: editFields.estimatedTime || null,
+          status: editFields.status,
+          ...(editFields.status === "rejected" ? { rejectionReason: editFields.rejectionReason.trim() } : {}),
         }),
       });
       cancelEditIdea();
