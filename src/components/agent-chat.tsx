@@ -23,14 +23,22 @@ async function sendLive(env: "dev" | "pro", role: string, message: string): Prom
   // Poll up to ~5 minutes (bridge run timeout is 240s) at 2s intervals.
   for (let i = 0; i < 150; i++) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    const pollRes = await fetch(`/api/hermes/requests/${requestId}`);
-    if (!pollRes.ok) continue;
-    const { request } = (await pollRes.json()) as {
-      request: { status: string; result: string | null; error: string | null };
-    };
-    if (request.status === "done") return request.result || "(no response)";
-    if (request.status === "failed" || request.status === "rejected") {
-      throw new Error(request.error || "request failed");
+    try {
+      const pollRes = await fetch(`/api/hermes/requests/${requestId}`);
+      if (!pollRes.ok) continue;
+      const { request } = (await pollRes.json()) as {
+        request: { status: string; result: string | null; error: string | null };
+      };
+      if (request.status === "done") return request.result || "(no response)";
+      if (request.status === "failed" || request.status === "rejected") {
+        throw new Error(request.error || "request failed");
+      }
+    } catch (err) {
+      // Only continue on network/JSON errors; re-throw Hermes errors
+      if (err instanceof TypeError || err instanceof SyntaxError) {
+        continue;
+      }
+      throw err;
     }
   }
   throw new Error("timed out waiting for a reply");
