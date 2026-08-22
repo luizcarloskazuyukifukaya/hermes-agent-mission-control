@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Agent } from "@/components/agent-card";
+import { LIVE_PROFILES } from "@/lib/live-profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,6 @@ const ROSTER: RosterEntry[] = [
 ];
 const ROLE_IDS = new Set<string>(ROSTER.map((r) => r.id));
 const OPEN_STATUSES = new Set(["todo", "ready", "scheduled"]);
-// Single toggle point for going live with more profiles later: "{env}-{roleId}".
-const LIVE_PROFILES = new Set<string>(["dev-coordinator"]);
 
 function isVDecentEnv(value: string): value is "dev" | "pro" {
   return value === "dev" || value === "pro";

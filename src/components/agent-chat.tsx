@@ -20,8 +20,11 @@ async function sendLive(env: "dev" | "pro", role: string, message: string): Prom
   if (!createRes.ok) throw new Error("dispatch failed");
   const { requestId } = (await createRes.json()) as { requestId: string };
 
-  // Poll up to ~5 minutes (bridge run timeout is 240s) at 2s intervals.
-  for (let i = 0; i < 150; i++) {
+  // Poll at 2s intervals. The bridge processes its queue serially (up to
+  // 240s per request), so a message queued behind other in-flight work can
+  // take a while to even start — budget generously (~20 minutes) rather
+  // than timing out while the bridge is still actively on it.
+  for (let i = 0; i < 600; i++) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     try {
       const pollRes = await fetch(`/api/hermes/requests/${requestId}`);
@@ -41,7 +44,7 @@ async function sendLive(env: "dev" | "pro", role: string, message: string): Prom
       throw err;
     }
   }
-  throw new Error("timed out waiting for a reply");
+  throw new Error("still waiting after a long time — the coordinator may still be working on this; try asking again");
 }
 
 export function AgentChat({ agent, env, onClose }: { agent: Agent; env: "dev" | "pro"; onClose: () => void }) {
