@@ -57,13 +57,21 @@ const pool = new pg.Pool({ connectionString: DB_URL, max: 4, ssl: isLocal ? unde
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const q = (text, params) => pool.query(text, params);
 
-async function hermes(args, { timeout = 30000 } = {}) {
-  const { stdout } = await execFileP(HERMES, args, { timeout, maxBuffer: 8 * 1024 * 1024 });
+async function hermes(args, { timeout = 30000, env } = {}) {
+  const { stdout } = await execFileP(HERMES, args, {
+    timeout,
+    maxBuffer: 8 * 1024 * 1024,
+    ...(env ? { env } : {}),
+  });
   return stdout;
 }
 
 function toDate(unixSeconds) {
   return unixSeconds != null ? new Date(unixSeconds * 1000) : null;
+}
+
+function profileHome(profile) {
+  return path.join(process.env.HERMES_HOME || path.join(os.homedir(), ".hermes"), "profiles", profile);
 }
 
 async function emit(kind, title, { detail = null, agent = "hermes", level = "info", meta = null } = {}) {
@@ -251,7 +259,13 @@ async function runRequest(r) {
   try {
     let result = "";
     if (r.kind === "oneshot" || r.kind === "chat") {
-      result = (await hermes(["-z", r.prompt || r.title], { timeout: RUN_TIMEOUT_MS })).trim();
+      if (r.kind === "chat" && r.profile) {
+        const args = ["-z", r.prompt || r.title, "--continue", `dashboard-${r.profile}`];
+        const env = { ...process.env, HERMES_HOME: profileHome(r.profile) };
+        result = (await hermes(args, { timeout: RUN_TIMEOUT_MS, env })).trim();
+      } else {
+        result = (await hermes(["-z", r.prompt || r.title], { timeout: RUN_TIMEOUT_MS })).trim();
+      }
     } else if (r.kind === "kanban") {
       result = (await hermes(["kanban", "--board", BOARD, "create", "--json", r.title], { timeout: 20000 })).trim();
     } else if (r.kind.startsWith("cron.")) {
