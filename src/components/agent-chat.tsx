@@ -75,8 +75,11 @@ export function AgentChat({ agent, env, onClose }: { agent: Agent; env: "dev" | 
         const d = await r.json() as { reply: string };
         setMsgs([...newMsgs, { role: "assistant", content: d.reply }]);
       }
-    } catch {
-      setMsgs([...newMsgs, { role: "assistant", content: "Sorry, something went wrong. Try again." }]);
+    } catch (err) {
+      const content = agent.live && err instanceof Error
+        ? err.message
+        : "Sorry, something went wrong. Try again.";
+      setMsgs([...newMsgs, { role: "assistant", content }]);
     }
     setLoading(false);
   }
