@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { LIVE_PROFILES } from "@/lib/live-profiles";
+import { LIVE_PROFILES, profileId } from "@/lib/live-profiles";
 
 const ROLE_IDS = new Set(["coordinator", "apps", "edge", "infra", "verifier"]);
 
@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ env: st
     return NextResponse.json({ error: "this role is not live yet" }, { status: 400 });
   }
 
-  const profile = `vdecent-${env === "dev" ? "dev" : "prod"}-${role}`;
+  const profile = profileId(env, role);
   const row = await prisma.agentRequest.create({
     data: {
       origin: "web",

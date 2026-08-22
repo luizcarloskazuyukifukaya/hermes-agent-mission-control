@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import type { Agent } from "@/components/agent-card";
+import { profileId } from "@/lib/live-profiles";
 
 const roleColors: Record<string, string> = {
   max: "from-amber-500/20 to-amber-600/5 border-amber-500/20",
@@ -102,7 +103,7 @@ export function AgentChat({ agent, env, onClose }: { agent: Agent; env: "dev" | 
         {agent.live ? (
           <div className="px-4 py-1.5 text-center text-[10px] font-medium tracking-wide uppercase"
             style={{ background: "color-mix(in srgb, var(--up) 10%, transparent)", color: "var(--up)", borderBottom: "1px solid var(--line)" }}>
-            Live — connected to hermes-{env}-{agent.id}
+            Live — connected to hermes-{profileId(env, agent.id).replace(/^vdecent-/, "")}
           </div>
         ) : (
           <div className="px-4 py-1.5 text-center text-[10px] font-medium tracking-wide uppercase"
