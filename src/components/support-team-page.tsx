@@ -140,7 +140,7 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
       {/* Office View */}
       {view === "office" && (
         <>
-          <SupportOfficeView agents={agents} teamLabel={`${title} · Support Floor`} />
+          <SupportOfficeView agents={agents} teamLabel={`${title} · Support Floor`} onSelectAgent={setChatAgent} />
           {/* Chat quick-launch strip */}
           <div className="flex flex-wrap gap-2 pt-2">
             {teamAgents.map(a => {

@@ -107,7 +107,7 @@ function MonitorScreen({ isWorking }: { isWorking: boolean }) {
 }
 
 // ── Agent desk tile ───────────────────────────────────────
-function AgentDesk({ agent, label, isLead }: { agent: Agent | undefined; label: string; isLead: boolean }) {
+function AgentDesk({ agent, label, isLead, onSelect }: { agent: Agent | undefined; label: string; isLead: boolean; onSelect?: (agent: Agent) => void }) {
   const rawStatus = agent?.status ?? "offline";
   const statusKey = STATUS[rawStatus] ? rawStatus : "idle";
   const colors = STATUS[statusKey];
@@ -132,8 +132,10 @@ function AgentDesk({ agent, label, isLead }: { agent: Agent | undefined; label: 
           ${isLead ? "w-44 h-44" : "w-36 h-36"}
           ${colors.bg} ${colors.glow}
           ${isOffline ? "opacity-40" : ""}
+          ${agent && onSelect ? "cursor-pointer" : ""}
           hover:scale-105 hover:z-10`}
         style={isWorking ? { animation: "status-ring 1.5s infinite" } : undefined}
+        onClick={agent && onSelect ? () => onSelect(agent) : undefined}
       >
         {/* Desk surface */}
         <div className={`absolute bottom-3 left-3 right-3 h-1/3 rounded-lg
@@ -231,7 +233,7 @@ function ActivityTicker({ agents }: { agents: Agent[] }) {
 }
 
 // ── Main export ───────────────────────────────────────────
-export default function SupportOfficeView({ agents, teamLabel }: { agents: Agent[]; teamLabel: string }) {
+export default function SupportOfficeView({ agents, teamLabel, onSelectAgent }: { agents: Agent[]; teamLabel: string; onSelectAgent?: (agent: Agent) => void }) {
   const getAgent = (id: string) => agents.find(a => a.id === id);
   const leadAgent = getAgent("coordinator");
   const teamDesks = DESK_LAYOUT.filter(d => d.agentId !== "coordinator");
@@ -261,12 +263,12 @@ export default function SupportOfficeView({ agents, teamLabel }: { agents: Agent
         {/* Desks */}
         <div className="flex flex-col items-center gap-8">
           {/* Row 1 — lead */}
-          <AgentDesk agent={leadAgent} label="Incident Command" isLead={true} />
+          <AgentDesk agent={leadAgent} label="Incident Command" isLead={true} onSelect={onSelectAgent} />
           <div className="w-px h-4 bg-neutral-700/60" />
           {/* Row 2 — Team */}
           <div className="flex flex-wrap justify-center gap-6 md:gap-8">
             {teamDesks.map(desk => (
-              <AgentDesk key={desk.agentId} agent={getAgent(desk.agentId)} label={desk.label} isLead={false} />
+              <AgentDesk key={desk.agentId} agent={getAgent(desk.agentId)} label={desk.label} isLead={false} onSelect={onSelectAgent} />
             ))}
           </div>
         </div>
