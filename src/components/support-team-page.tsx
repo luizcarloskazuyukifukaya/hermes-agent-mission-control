@@ -151,7 +151,10 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
                   className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[12px] transition-colors panel-interactive ${
                     isOpen ? "bg-white/[0.08] text-[var(--text)]" : "text-[var(--text-2)]"
                   }`}
-                  style={{ background: isOpen ? undefined : "var(--surface-1)", border: "1px solid var(--line)" }}>
+                  style={{
+                    background: isOpen ? undefined : "var(--surface-1)",
+                    border: isOpen ? "2px solid var(--up)" : "1px solid var(--line)",
+                  }}>
                   <span>{a.emoji}</span> Chat with {a.name}
                   {isBusy && (
                     <span className="relative flex w-1.5 h-1.5">
@@ -168,7 +171,7 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
                 style={{
                   color: "var(--accent)",
                   background: chatAgent?.id === leadAgent.id ? "color-mix(in srgb, var(--accent) 20%, transparent)" : "color-mix(in srgb, var(--accent) 10%, transparent)",
-                  border: `1px solid color-mix(in srgb, var(--accent) ${chatAgent?.id === leadAgent.id ? "45" : "28"}%, transparent)`,
+                  border: chatAgent?.id === leadAgent.id ? "2px solid var(--up)" : "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
                 }}>
                 🧭 Chat with {leadAgent.name}
                 {getThread(leadAgent.id).loading && (
