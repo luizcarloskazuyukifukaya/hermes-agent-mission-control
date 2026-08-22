@@ -5,6 +5,7 @@ import SupportOfficeView from "@/components/SupportOfficeView";
 import { AgentCard, type Agent } from "@/components/agent-card";
 import { AgentChat } from "@/components/agent-chat";
 import { TaskBoard, type Task } from "@/components/task-board";
+import { useAgentChats } from "@/lib/use-agent-chats";
 
 interface BoardData {
   tasks: Task[];
@@ -21,6 +22,7 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [view, setView] = useState<"cards" | "office" | "board">("office");
   const [chatAgent, setChatAgent] = useState<Agent | null>(null);
+  const { getThread, sendMessage } = useAgentChats(env);
 
   const loadAgents = useCallback(async () => {
     try {
@@ -125,7 +127,15 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
       </div>
 
       {/* Live Agent Chat Modal */}
-      {chatAgent && <AgentChat agent={chatAgent} env={env} onClose={() => setChatAgent(null)} />}
+      {chatAgent && (
+        <AgentChat
+          agent={chatAgent}
+          env={env}
+          thread={getThread(chatAgent.id)}
+          onSend={(text) => sendMessage(chatAgent, text)}
+          onClose={() => setChatAgent(null)}
+        />
+      )}
 
       {/* Office View */}
       {view === "office" && (
@@ -133,18 +143,40 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
           <SupportOfficeView agents={agents} teamLabel={`${title} · Support Floor`} />
           {/* Chat quick-launch strip */}
           <div className="flex flex-wrap gap-2 pt-2">
-            {teamAgents.map(a => (
-              <button key={a.id} onClick={() => setChatAgent(a)}
-                className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[12px] text-[var(--text-2)] transition-colors panel-interactive"
-                style={{ background: "var(--surface-1)", border: "1px solid var(--line)" }}>
-                <span>{a.emoji}</span> Chat with {a.name}
-              </button>
-            ))}
+            {teamAgents.map(a => {
+              const isOpen = chatAgent?.id === a.id;
+              const isBusy = getThread(a.id).loading;
+              return (
+                <button key={a.id} onClick={() => setChatAgent(a)}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[12px] transition-colors panel-interactive ${
+                    isOpen ? "bg-white/[0.08] text-[var(--text)]" : "text-[var(--text-2)]"
+                  }`}
+                  style={{ background: isOpen ? undefined : "var(--surface-1)", border: "1px solid var(--line)" }}>
+                  <span>{a.emoji}</span> Chat with {a.name}
+                  {isBusy && (
+                    <span className="relative flex w-1.5 h-1.5">
+                      <span className="absolute inline-flex h-full w-full rounded-full animate-ping" style={{ background: "color-mix(in srgb, var(--accent) 60%, transparent)" }} />
+                      <span className="relative inline-flex w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
             {leadAgent && (
               <button onClick={() => setChatAgent(leadAgent)}
                 className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[12px] transition-colors"
-                style={{ color: "var(--accent)", background: "color-mix(in srgb, var(--accent) 10%, transparent)", border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)" }}>
+                style={{
+                  color: "var(--accent)",
+                  background: chatAgent?.id === leadAgent.id ? "color-mix(in srgb, var(--accent) 20%, transparent)" : "color-mix(in srgb, var(--accent) 10%, transparent)",
+                  border: `1px solid color-mix(in srgb, var(--accent) ${chatAgent?.id === leadAgent.id ? "45" : "28"}%, transparent)`,
+                }}>
                 🧭 Chat with {leadAgent.name}
+                {getThread(leadAgent.id).loading && (
+                  <span className="relative flex w-1.5 h-1.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full animate-ping" style={{ background: "color-mix(in srgb, var(--accent) 60%, transparent)" }} />
+                    <span className="relative inline-flex w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} />
+                  </span>
+                )}
               </button>
             )}
           </div>
