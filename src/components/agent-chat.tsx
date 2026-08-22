@@ -11,7 +11,32 @@ const roleColors: Record<string, string> = {
   pixel: "from-blue-500/20 to-blue-600/5 border-blue-500/20",
 };
 
-export function AgentChat({ agent, onClose }: { agent: Agent; onClose: () => void }) {
+async function sendLive(env: "dev" | "pro", role: string, message: string): Promise<string> {
+  const createRes = await fetch(`/api/support-team/${env}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role, message }),
+  });
+  if (!createRes.ok) throw new Error("dispatch failed");
+  const { requestId } = (await createRes.json()) as { requestId: string };
+
+  // Poll up to ~5 minutes (bridge run timeout is 240s) at 2s intervals.
+  for (let i = 0; i < 150; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const pollRes = await fetch(`/api/hermes/requests/${requestId}`);
+    if (!pollRes.ok) continue;
+    const { request } = (await pollRes.json()) as {
+      request: { status: string; result: string | null; error: string | null };
+    };
+    if (request.status === "done") return request.result || "(no response)";
+    if (request.status === "failed" || request.status === "rejected") {
+      throw new Error(request.error || "request failed");
+    }
+  }
+  throw new Error("timed out waiting for a reply");
+}
+
+export function AgentChat({ agent, env, onClose }: { agent: Agent; env: "dev" | "pro"; onClose: () => void }) {
   const [input, setInput] = useState("");
   const [msgs, setMsgs] = useState<{ role: "user"|"assistant"; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -27,13 +52,18 @@ export function AgentChat({ agent, onClose }: { agent: Agent; onClose: () => voi
     setMsgs(newMsgs);
     setLoading(true);
     try {
-      const r = await fetch("/api/agent-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId: agent.id, message: text, history: msgs }),
-      });
-      const d = await r.json() as { reply: string };
-      setMsgs([...newMsgs, { role: "assistant", content: d.reply }]);
+      if (agent.live) {
+        const reply = await sendLive(env, agent.id, text);
+        setMsgs([...newMsgs, { role: "assistant", content: reply }]);
+      } else {
+        const r = await fetch("/api/agent-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId: agent.id, message: text, history: msgs }),
+        });
+        const d = await r.json() as { reply: string };
+        setMsgs([...newMsgs, { role: "assistant", content: d.reply }]);
+      }
     } catch {
       setMsgs([...newMsgs, { role: "assistant", content: "Sorry, something went wrong. Try again." }]);
     }
@@ -54,11 +84,18 @@ export function AgentChat({ agent, onClose }: { agent: Agent; onClose: () => voi
           </div>
           <button onClick={onClose} className="ml-auto text-[var(--text-3)] hover:text-[var(--text)] transition-colors text-xl leading-none">×</button>
         </div>
-        {/* Simulated notice */}
-        <div className="px-4 py-1.5 text-center text-[10px] font-medium tracking-wide uppercase"
-          style={{ background: "color-mix(in srgb, var(--warn) 10%, transparent)", color: "var(--warn)", borderBottom: "1px solid var(--line)" }}>
-          Simulated — not the live agent
-        </div>
+        {/* Simulated / live notice */}
+        {agent.live ? (
+          <div className="px-4 py-1.5 text-center text-[10px] font-medium tracking-wide uppercase"
+            style={{ background: "color-mix(in srgb, var(--up) 10%, transparent)", color: "var(--up)", borderBottom: "1px solid var(--line)" }}>
+            Live — connected to hermes-{env}-{agent.id}
+          </div>
+        ) : (
+          <div className="px-4 py-1.5 text-center text-[10px] font-medium tracking-wide uppercase"
+            style={{ background: "color-mix(in srgb, var(--warn) 10%, transparent)", color: "var(--warn)", borderBottom: "1px solid var(--line)" }}>
+            Simulated — not the live agent
+          </div>
+        )}
         {/* Messages */}
         <div className="h-80 overflow-y-auto p-4 space-y-3 flex flex-col" style={{ background: "var(--surface-1)" }}>
           {msgs.length === 0 && (
@@ -80,7 +117,9 @@ export function AgentChat({ agent, onClose }: { agent: Agent; onClose: () => voi
           {loading && (
             <div className="flex justify-start">
               <div className="rounded-[var(--r-md)] px-3.5 py-2" style={{ background: "var(--surface-2)", border: "1px solid var(--line)" }}>
-                <span className="text-[var(--text-3)] text-[13px]">{agent.emoji} thinking…</span>
+                <span className="text-[var(--text-3)] text-[13px]">
+                  {agent.emoji} {agent.live ? "working — can take a couple of minutes on real diagnostic work…" : "thinking…"}
+                </span>
               </div>
             </div>
           )}

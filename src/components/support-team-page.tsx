@@ -125,7 +125,7 @@ export function SupportTeamPage({ env, title }: { env: "dev" | "pro"; title: str
       </div>
 
       {/* Live Agent Chat Modal */}
-      {chatAgent && <AgentChat agent={chatAgent} onClose={() => setChatAgent(null)} />}
+      {chatAgent && <AgentChat agent={chatAgent} env={env} onClose={() => setChatAgent(null)} />}
 
       {/* Office View */}
       {view === "office" && (
