@@ -17,6 +17,7 @@ export interface Agent {
   tasksCompleted: number;
   totalCost: number;
   recentActivity: AgentActivity[];
+  live?: boolean;
 }
 
 export const statusConfig: Record<string, { color: string; dot: string; label: string; pulse?: boolean }> = {

@@ -22,6 +22,8 @@ const ROSTER: RosterEntry[] = [
 ];
 const ROLE_IDS = new Set<string>(ROSTER.map((r) => r.id));
 const OPEN_STATUSES = new Set(["todo", "ready", "scheduled"]);
+// Single toggle point for going live with more profiles later: "{env}-{roleId}".
+const LIVE_PROFILES = new Set<string>(["dev-coordinator"]);
 
 function isVDecentEnv(value: string): value is "dev" | "pro" {
   return value === "dev" || value === "pro";
@@ -97,6 +99,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ env: st
       tasksCompleted: doneCount,
       totalCost: 0,
       recentActivity,
+      live: LIVE_PROFILES.has(`${env}-${member.id}`),
     };
   });
 
