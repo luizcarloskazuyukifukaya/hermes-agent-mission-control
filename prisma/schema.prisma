@@ -442,6 +442,7 @@ model AgentRequest {
   kind          String    @default("oneshot") // "oneshot" | "kanban" | "chat"
   title         String
   prompt        String?
+  profile       String?   // e.g. "vdecent-dev-coordinator"; null = default profile
   sideEffecting Boolean   @default(false)
   status        String    @default("queued")  // queued | awaiting_approval | approved | running | done | failed | rejected
   result        String?
