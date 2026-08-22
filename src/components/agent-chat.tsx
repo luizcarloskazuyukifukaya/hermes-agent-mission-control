@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import type { Agent } from "@/components/agent-card";
+import type { ChatThread } from "@/lib/use-agent-chats";
 import { profileId } from "@/lib/live-profiles";
 
 const roleColors: Record<string, string> = {
@@ -12,77 +13,26 @@ const roleColors: Record<string, string> = {
   pixel: "from-blue-500/20 to-blue-600/5 border-blue-500/20",
 };
 
-async function sendLive(env: "dev" | "pro", role: string, message: string): Promise<string> {
-  const createRes = await fetch(`/api/support-team/${env}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ role, message }),
-  });
-  if (!createRes.ok) throw new Error("dispatch failed");
-  const { requestId } = (await createRes.json()) as { requestId: string };
-
-  // Poll at 2s intervals. The bridge processes its queue serially (up to
-  // 240s per request), so a message queued behind other in-flight work can
-  // take a while to even start — budget generously (~20 minutes) rather
-  // than timing out while the bridge is still actively on it.
-  for (let i = 0; i < 600; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    try {
-      const pollRes = await fetch(`/api/hermes/requests/${requestId}`);
-      if (!pollRes.ok) continue;
-      const { request } = (await pollRes.json()) as {
-        request: { status: string; result: string | null; error: string | null };
-      };
-      if (request.status === "done") return request.result || "(no response)";
-      if (request.status === "failed" || request.status === "rejected") {
-        throw new Error(request.error || "request failed");
-      }
-    } catch (err) {
-      // Only continue on network/JSON errors; re-throw Hermes errors
-      if (err instanceof TypeError || err instanceof SyntaxError) {
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw new Error("still waiting after a long time — the coordinator may still be working on this; try asking again");
-}
-
-export function AgentChat({ agent, env, onClose }: { agent: Agent; env: "dev" | "pro"; onClose: () => void }) {
+export function AgentChat({
+  agent, env, thread, onSend, onClose,
+}: {
+  agent: Agent;
+  env: "dev" | "pro";
+  thread: ChatThread;
+  onSend: (text: string) => void;
+  onClose: () => void;
+}) {
   const [input, setInput] = useState("");
-  const [msgs, setMsgs] = useState<{ role: "user"|"assistant"; content: string }[]>([]);
-  const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const { msgs, loading } = thread;
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
-  async function send() {
+  function send() {
     const text = input.trim();
     if (!text || loading) return;
     setInput("");
-    const newMsgs = [...msgs, { role: "user" as const, content: text }];
-    setMsgs(newMsgs);
-    setLoading(true);
-    try {
-      if (agent.live) {
-        const reply = await sendLive(env, agent.id, text);
-        setMsgs([...newMsgs, { role: "assistant", content: reply }]);
-      } else {
-        const r = await fetch("/api/agent-chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ agentId: agent.id, message: text, history: msgs }),
-        });
-        const d = await r.json() as { reply: string };
-        setMsgs([...newMsgs, { role: "assistant", content: d.reply }]);
-      }
-    } catch (err) {
-      const content = agent.live && err instanceof Error
-        ? err.message
-        : "Sorry, something went wrong. Try again.";
-      setMsgs([...newMsgs, { role: "assistant", content }]);
-    }
-    setLoading(false);
+    onSend(text);
   }
 
   const agentColor = roleColors[agent.id]?.split(" ")[0]?.replace("from-","text-")?.replace("/20","") || "text-[var(--text-3)]";
